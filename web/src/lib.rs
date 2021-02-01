@@ -1,14 +1,28 @@
 extern crate wasm_bindgen;
 
+use wasm_bindgen::__rt::core::fmt::Debug;
 use wasm_bindgen::prelude::*;
 
-type Context = web_sys::CanvasRenderingContext2d;
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+macro_rules! log {
+    // Note that this is using the `log` function imported above during
+    // `bare_bones`
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
 
 type Float = f32;
 
 trait Vector:
     Sized
     + Copy
+    + Debug
     + std::ops::Mul<Output = Self>
     + std::ops::Add<Output = Self>
     + std::ops::Sub<Output = Self>
@@ -103,15 +117,9 @@ trait Vector:
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct NdVec<const L: usize> {
     components: [Float; L],
-}
-
-impl<const L: usize> NdVec<L> {
-    fn from_slice(components: [Float; L]) -> Self {
-        Self { components }
-    }
 }
 
 impl<const L: usize> Vector for NdVec<L> {
@@ -192,7 +200,6 @@ impl<const L: usize> std::ops::Sub<Float> for NdVec<L> {
     type Output = NdVec<L>;
 
     fn sub(self, other: Float) -> NdVec<L> {
-        println!("hi");
         Vector::sub_scalar(&self, other)
     }
 }
@@ -214,59 +221,95 @@ impl<const L: usize> std::ops::Div<Float> for NdVec<L> {
 }
 
 #[wasm_bindgen]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Color {
-    array: [u8; 4],
+    array: [Float; 4],
 }
 
 #[wasm_bindgen]
 impl Color {
-    pub fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+    pub fn rgba(r: Float, g: Float, b: Float, a: Float) -> Self {
         Self {
             array: [r, g, b, a],
         }
     }
 
-    pub fn rgb(r: u8, g: u8, b: u8) -> Self {
+    pub fn rgb(r: Float, g: Float, b: Float) -> Self {
         Self {
-            array: [r, g, b, 255],
+            array: [r, g, b, 1.0],
         }
+    }
+
+    pub fn red(&self) -> Float {
+        self.array[0]
+    }
+    pub fn green(&self) -> Float {
+        self.array[1]
+    }
+    pub fn blue(&self) -> Float {
+        self.array[2]
+    }
+    pub fn alpha(&self) -> Float {
+        self.array[3]
+    }
+
+    fn from_int(slice: &[u8; 4]) -> Self {
+        Self {
+            array: [
+                (slice[0] / 255) as Float,
+                (slice[1] / 255) as Float,
+                (slice[2] / 255) as Float,
+                (slice[3] / 255) as Float,
+            ],
+        }
+    }
+
+    fn to_int(&self) -> [u8; 4] {
+        [
+            (self.array[0] * 255.0) as u8,
+            (self.array[1] * 255.0) as u8,
+            (self.array[2] * 255.0) as u8,
+            (self.array[3] * 255.0) as u8,
+        ]
+    }
+
+    fn apply(&mut self, top: &Self) {
+        let alpha = top.alpha();
+        let invert = 1.0 - alpha;
+
+        self.array[0] = self.red() * invert + top.red() * alpha;
+        self.array[1] = self.green() * invert + top.green() * alpha;
+        self.array[2] = self.blue() * invert + top.blue() * alpha;
+    }
+
+    fn adjust_brightness(&mut self, brightness: Float) {
+        self.array[0] = self.red() * brightness;
+        self.array[1] = self.green() * brightness;
+        self.array[2] = self.blue() * brightness;
     }
 }
 
-// impl Vector for Color {
-//     fn new() -> Self {
-//         Self(NdVec::new())
-//     }
-
-//     fn from_iter(iter: impl Iterator<Item = Float>) -> Self {
-//         Self(NdVec::from_iter(iter))
-//     }
-
-//     fn pad(base: &[Float], d: Float) -> Self {
-//         Self(NdVec::pad(base, d))
-//     }
-
-//     fn components(&self) -> &[Float] {
-//         self.0.components()
-//     }
-// }
+static BG_COLOR: Color = Color {
+    array: [0.92, 0.92, 0.92, 1.0],
+};
 
 #[wasm_bindgen]
+#[derive(Debug, Clone)]
 pub struct Surface {
     color: Color,
 }
 
 #[wasm_bindgen]
+#[derive(Debug, Clone)]
 pub struct Sphere {
-    radius: f64,
+    radius: Float,
     surface: Surface,
 }
 
 #[wasm_bindgen]
 impl Sphere {
     #[wasm_bindgen(constructor)]
-    pub fn new(radius: f64, color: Color) -> Self {
+    pub fn new(radius: Float, color: Color) -> Self {
         Self {
             radius,
             surface: Surface { color },
@@ -275,8 +318,9 @@ impl Sphere {
 }
 
 #[wasm_bindgen]
+#[derive(Clone)]
 pub struct World {
-    spheres: Vec<Sphere>,
+    spheres: Vec<(Vec<Float>, Sphere)>,
 }
 
 #[wasm_bindgen]
@@ -287,108 +331,175 @@ impl World {
     }
 
     #[wasm_bindgen]
-    pub fn add_sphere(&mut self, s: Sphere) {
-        self.spheres.push(s);
+    pub fn add_sphere(&mut self, pos: Vec<Float>, sphere: Sphere) {
+        self.spheres.push((pos, sphere));
     }
 }
 
-fn trace<V: Vector>(wold: &World, cam_pos: V, ray: V, light_pos: V) -> Color {
-    Color::rgba(20, 10, 10, 255)
+#[derive(Debug)]
+struct DimensionalWorld<V: Vector> {
+    center: V,
+    cam_pos: V,
+    light_pos: V,
+    spheres: Vec<(V, Sphere)>,
 }
 
-fn sample<V: Vector>(wold: &World, x: Float, y: Float) -> Color {
-    let cam_pos = V::pad(&[-5.0], 0.0);
-    let light_pos = V::pad(&[-2.0, -2.0], 0.0);
+impl<V: Vector> DimensionalWorld<V> {
+    fn from_world(world: &World) -> Self {
+        Self {
+            center: V::new(),
+            cam_pos: V::pad(&[-5.0, -3.0, 2.0], -1.0),
+            light_pos: V::pad(&[-3.0, -3.0, 3.0], 3.0),
+            spheres: world
+                .spheres
+                .iter()
+                .map(|(position, s)| {
+                    let position = V::pad(&position, 0.0);
+                    (position, s.to_owned())
+                })
+                .collect(),
+        }
+    }
+}
 
-    let center = V::new();
+struct Intersection<V: Vector> {
+    position: V,
+    normal: V,
+    distance: Float,
+    surface: Surface,
+}
 
-    let x_centered = x * 2.0 - 1.0;
-    let y_centered = y * 2.0 - 1.0;
+fn test_sphere_intersection<V: Vector>(
+    origin: &V,
+    ray: &V,
+    center: &V,
+    sphere: &Sphere,
+) -> Option<Intersection<V>> {
+    let origin_to_sphere = *center - *origin;
 
-    let cam_dir = (center - cam_pos).normalize();
+    // len of ray to the point where it's closest to the sphere center
+    let tc = ray.dot(&origin_to_sphere);
+
+    if tc > 0.0 {
+        let origin_to_sphere_len = origin_to_sphere.length();
+
+        // center of sphere to ray
+        let d = Float::sqrt(origin_to_sphere_len * origin_to_sphere_len - tc * tc);
+
+        // if we hit the sphere
+        if d < sphere.radius {
+            // length from intersection to the point where d hits the ray (i.e. end of tc)
+            let t1c = Float::sqrt(sphere.radius * sphere.radius - d * d);
+
+            // length to first intersection
+            let tc1 = tc - t1c;
+
+            // point of first intersection on the ray
+            let first_intersection = *ray * tc1;
+            let hit = *origin + first_intersection;
+
+            return Some(Intersection {
+                position: hit,
+                normal: (hit - *center).normalize(),
+                distance: (hit - *origin).length(),
+                surface: sphere.surface.clone(),
+            });
+        }
+    }
+
+    None
+}
+
+fn get_all_intersections<V: Vector>(
+    world: &DimensionalWorld<V>,
+    origin: &V,
+    ray: &V,
+) -> Vec<Intersection<V>> {
+    let mut all = vec![];
+    for (position, sphere) in &world.spheres {
+        if let Some(intersection) = test_sphere_intersection(origin, ray, &position, sphere) {
+            all.push(intersection)
+        }
+    }
+
+    all.sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());
+
+    all
+}
+
+fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, light_pos: &V) -> Color {
+    let all = get_all_intersections(world, &cam_pos, &ray);
+
+    let mut color = BG_COLOR;
+    for hit in all {
+        let hit_to_light = (*light_pos - hit.position).normalize();
+        let angle = hit.normal.dot(&hit_to_light);
+        let mut hit_color = hit.surface.color;
+
+        hit_color.adjust_brightness(angle);
+
+        let shadow_casters = get_all_intersections(world, &hit.position, &hit_to_light);
+        if shadow_casters.len() > 1 {
+            hit_color.adjust_brightness(0.5);
+        }
+
+        // color = hit_color;
+        color.apply(&hit_color);
+    }
+
+    color
+}
+
+fn sample<V: Vector>(world: &DimensionalWorld<V>, rel_x: Float, rel_y: Float) -> Color {
+    let zoom = 1.6;
+    let cam_dir = (world.center - world.cam_pos).normalize();
     let cam_dir_ort = V::pad(&[-cam_dir.components()[1], cam_dir.components()[0]], 0.0);
-    let pos_on_sensor_x = cam_dir_ort * x_centered;
-    let pos_on_sensor_y = V::pad(&[0.0, 0.0, 1.0], 0.0) * y_centered;
-    let pos_on_sensor = pos_on_sensor_x * pos_on_sensor_y;
 
-    let ray = (cam_dir + pos_on_sensor).normalize();
+    let centered_x = rel_x * 2.0 - 1.0;
+    let centered_y = rel_y * 2.0 - 1.0;
+    let pos_on_sensor_x = cam_dir_ort * centered_x;
+    let pos_on_sensor_y = V::pad(&[0.0, 0.0, 1.0], 0.0) * centered_y;
+    let pos_on_sensor = pos_on_sensor_x + pos_on_sensor_y;
 
-    trace(wold, cam_pos, ray, light_pos)
-}
+    let ray = (cam_dir * zoom + pos_on_sensor).normalize();
 
-#[wasm_bindgen]
-pub fn sample_3(wold: &World, x: Float, y: Float) -> Color {
-    sample::<NdVec<3>>(wold, x, y)
+    trace(world, &world.cam_pos, &ray, &world.light_pos)
 }
 
 #[wasm_bindgen]
 pub fn update(
     world: &World,
-    width: usize,
-    height: usize,
+    width_i: usize,
+    height_i: usize,
     min_canvas_dim: usize,
     mut data: wasm_bindgen::Clamped<Vec<u8>>,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
-    let offset_y = (min_canvas_dim - height) / 2;
-    let offset_x = (min_canvas_dim - width) / 2;
+    let min_canvas_dim = min_canvas_dim as Float;
+    let width = width_i as Float;
+    let height = height_i as Float;
 
-    for y in 0..height {
-        let rel_y = 1.0 - (y + offset_y) as Float / min_canvas_dim as Float;
-        for x in 0..width {
-            let rel_x = (x + offset_x) as Float / min_canvas_dim as Float;
+    type V = NdVec<4>;
 
-            let color = sample_3(world, rel_x, rel_y).array;
-            let index = (y * width + x) * 4;
+    let world = DimensionalWorld::from_world(world);
+
+    let offset_x = (min_canvas_dim - width) / 2.0;
+    let offset_y = (min_canvas_dim - height) / 2.0;
+
+    for y in 0..height_i {
+        let rel_y = 1.0 - (y as Float + offset_y) / min_canvas_dim;
+
+        for x in 0..width_i {
+            let rel_x = (x as Float + offset_x) / min_canvas_dim;
+
+            let color = sample::<V>(&world, rel_x, rel_y).to_int();
+
+            let index = (x + y * width_i) * 4;
             data[index + 0] = color[0];
             data[index + 1] = color[1];
             data[index + 2] = color[2];
-            data[index + 3] = color[3];
+            data[index + 3] = 255; // color[3];
         }
     }
 
     data
-}
-
-#[wasm_bindgen]
-pub fn draw(canvas: web_sys::HtmlCanvasElement, ctx: Context) {
-    let height = canvas.height();
-    let width = canvas.width();
-    let image_data = ctx
-        .get_image_data(0.0, 0.0, width as f64, height as f64)
-        .unwrap();
-
-    let mut data = image_data.data();
-    let px_count = data.len() / 4;
-    for i in 0..px_count {
-        let i = i * 4;
-        data[i + 0] = 255;
-        data[i + 1] = 0;
-        data[i + 2] = 0;
-        data[i + 3] = 255;
-    }
-
-    let out: wasm_bindgen::Clamped<&[u8]> = wasm_bindgen::Clamped(&data);
-    let out = web_sys::ImageData::new_with_u8_clamped_array(out, width).unwrap();
-
-    ctx.put_image_data(&out, 0.0, 0.0).unwrap();
-
-    // // Draw the outer circle.
-    // ctx.arc(75.0, 75.0, 50.0, 0.0, f64::consts::PI * 2.0)
-    //     .unwrap();
-    //
-    // // Draw the mouth.
-    // ctx.move_to(110.0, 75.0);
-    // ctx.arc(75.0, 75.0, 35.0, 0.0, f64::consts::PI).unwrap();
-    //
-    // // Draw the left eye.
-    // ctx.move_to(65.0, 65.0);
-    // ctx.arc(60.0, 65.0, 5.0, 0.0, f64::consts::PI * 2.0)
-    //     .unwrap();
-    //
-    // // Draw the right eye.
-    // ctx.move_to(95.0, 65.0);
-    // ctx.arc(90.0, 65.0, 5.0, 0.0, f64::consts::PI * 2.0)
-    //     .unwrap();
-    //
-    // ctx.stroke();
 }
