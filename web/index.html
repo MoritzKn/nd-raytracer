@@ -1,8 +1,38 @@
-<html>
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
   <head>
-    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <title>N-Dimensional Raytracing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <meta
+      name="description"
+      content="A hacky javascript software renderer for raytracing n-dimensional spheres"
+    />
+    <meta
+      property="og:image"
+      content="https://nd-raytracing.netlify.app/og.png"
+    />
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: monospace;
+        font-size: 15px;
+      }
+      #wrapper {
+        width: 100vw;
+        height: 100vh;
+        margin: 0 0;
+      }
+    </style>
   </head>
+
   <body>
-    <canvas id="canvas" height="150" width="150"></canvas>
+    <div id="wrapper">
+      <canvas id="canvas"></canvas>
+    </div>
   </body>
 </html>

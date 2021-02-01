@@ -2,21 +2,26 @@
 name = "ndrt-web"
 version = "0.1.0"
 authors = ["Moritz Kneilmann <moritz.kneilmann@gmx.de>"]
-edition = "2018"
 
 [lib]
 crate-type = ["cdylib"]
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+# panic = "abort"
+# lto = true
 
 [dependencies]
 js-sys = "0.3.47"
 wasm-bindgen = "0.2.70"
 
 [dependencies.web-sys]
-version = "0.3.4"
+version = "0.3.47"
 features = [
-  'CanvasRenderingContext2d',
-  'Document',
-  'Element',
-  'HtmlCanvasElement',
-  'Window',
+  "CanvasRenderingContext2d",
+  "HtmlCanvasElement",
+  "ImageData"
 ]
