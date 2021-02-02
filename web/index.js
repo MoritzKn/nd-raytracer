@@ -8,6 +8,7 @@ let world;
 let imageData;
 
 function draw() {
+  console.time("update");
   const res = lib.update(
     world,
     canvas.width,
@@ -15,9 +16,10 @@ function draw() {
     minCanvasDim,
     imageData.data
   );
-  imageData = new ImageData(res, canvas.width);
 
+  imageData = new ImageData(res, canvas.width);
   ctx.putImageData(imageData, 0, 0);
+  console.timeEnd("update");
 
   requestAnimationFrame(draw);
 }
@@ -43,10 +45,16 @@ function stackSpheres(world, dimension) {
       .split("")
       .map(Number)
       .map(n => n * 2 - 1);
-    world.add_sphere(pos, new lib.Sphere(outerR, lib.Color.rgba(0.15, 0.35, 1, 0.78)));
+    world.add_sphere(
+      pos,
+      new lib.Sphere(outerR, lib.Color.rgba(0.15, 0.35, 1, 0.78))
+    );
   }
   const innerR = Math.sqrt(dimension) - outerR;
-  world.add_sphere([], new lib.Sphere(innerR, lib.Color.rgba(1, 0.4, 0.2, 0.63)));
+  world.add_sphere(
+    [],
+    new lib.Sphere(innerR, lib.Color.rgba(1, 0.4, 0.2, 0.63))
+  );
 }
 
 async function init() {
