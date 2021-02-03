@@ -7,30 +7,80 @@ let minCanvasDim;
 let world;
 let imageData;
 
+let scale = 0.75;
+let dt = 16;
+
+let camPos = [-1, -4];
+
+function getRotation(angle, scale) {
+  return [
+    Math.cos(angle) * scale,
+    Math.sin(angle) * scale
+  ]
+}
+
+
 function draw() {
-  console.time("update");
+  if (dt > 24) {
+    scale = Math.min(scale / (dt / 22), 2);
+    resize(scale);
+  }
+  if (dt < 16) {
+    scale = Math.max(scale / (dt / 18), 0.1);
+    resize(scale);
+  }
+
+  // const camSpeed = 1 / 1000;
+  // camPos[0] += camSpeed * dt;
+  // if (camPos[0] > camDist * 2) camPos[0] -= camDist * 2;
+  // camPos[1] += camSpeed * dt;
+  // if (camPos[1] > camDist * 2) camPos[1] -= camDist * 2;
+
+  let angle = Math.atan2(camPos[1], camPos[0]) + (Math.PI / 8 * dt / 1000);
+  camPos = getRotation(angle, 6);
+
+  let start = performance.now();
   const res = lib.update(
     imageData.data,
     world,
-    canvas.width,
-    canvas.height,
-    minCanvasDim,
+    camPos,
+    imageData.width,
+    imageData.height,
+    minCanvasDim
   );
 
-  imageData = new ImageData(res, canvas.width);
+  imageData = new ImageData(res, imageData.width);
   ctx.putImageData(imageData, 0, 0);
-  console.timeEnd("update");
+  dt = performance.now() - start;
+  console.log(
+    `update dt: ${dt.toFixed(0)}ms, scale: ${scale.toFixed(2)}`
+  );
 
-  // requestAnimationFrame(draw);
+  requestAnimationFrame(draw);
 }
 
 function resize() {
-  canvas.width = wrapper.clientWidth;
-  canvas.height = wrapper.clientHeight;
-  // canvas.width = 800;
-  // canvas.height = 700;
+  const step = 27;
+
+  canvas.width = Math.floor(wrapper.clientWidth * scale);
+  canvas.height = Math.floor(wrapper.clientHeight * scale);
   minCanvasDim = Math.min(canvas.width, canvas.height);
-  imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  let bufferWidth = Math.ceil(canvas.width / step) * step;
+  let bufferHeight = Math.ceil(canvas.height / step) * step;
+  imageData = ctx.getImageData(0, 0, bufferWidth, bufferHeight);
+
+  canvas.style.transform = `
+  scale(${1 / scale})
+  translate(
+    ${(bufferWidth - canvas.width) / -2}px,
+    ${(bufferHeight - canvas.height) / -2}px
+    )`;
+  canvas.style.transformOrigin = `left top`;
+
+  console.log(
+    `resize: scale: ${scale.toFixed(2)}, buffer: ${bufferWidth} ${bufferHeight}`
+  );
 }
 
 function stackSpheres(world, dimension) {
@@ -65,7 +115,7 @@ async function init() {
 
   world = new lib.World();
 
-  stackSpheres(world, 4);
+  stackSpheres(world, 3);
 
   requestAnimationFrame(draw);
 }
