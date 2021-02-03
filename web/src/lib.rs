@@ -450,6 +450,16 @@ fn get_all_intersections<V: Vector>(
     all
 }
 
+fn get_light_color<V: Vector>(shadow_casters: Vec<Intersection<V>>) -> Color {
+    let mut light_color = Color::rgb(1.0, 1.0, 1.0);
+
+    for sc in shadow_casters {
+        light_color.apply(&sc.surface.color);
+    }
+
+    light_color
+}
+
 fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, light_pos: &V) -> Color {
     let all = get_all_intersections(world, &cam_pos, &ray);
 
@@ -457,14 +467,30 @@ fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, light_pos
     for hit in all {
         let hit_to_light = (*light_pos - hit.position).normalize();
         let angle = hit.normal.dot(&hit_to_light);
+        let brightness = Float::max(angle * 0.3 + 0.4, 0.0) + 0.3;
         let mut hit_color = hit.surface.color;
 
-        hit_color.adjust_brightness(angle);
+        hit_color.adjust_brightness(brightness);
 
-        let shadow_casters = get_all_intersections(world, &hit.position, &hit_to_light);
-        if shadow_casters.len() > 1 {
-            hit_color.adjust_brightness(0.5);
-        }
+        let direct_light_color =
+            get_light_color(get_all_intersections(world, &hit.position, &hit_to_light));
+
+        hit_color.apply(&Color::rgba(
+            direct_light_color.red(),
+            direct_light_color.green(),
+            direct_light_color.blue(),
+            0.15,
+        ));
+
+        // let ambient_light_color =
+        //     get_light_color(get_all_intersections(world, &hit.position, &hit.normal));
+        //
+        // hit_color.apply(&Color::rgba(
+        //     ambient_light_color.red(),
+        //     ambient_light_color.green(),
+        //     ambient_light_color.blue(),
+        //     0.1,
+        // ));
 
         // color = hit_color;
         color.apply(&hit_color);
