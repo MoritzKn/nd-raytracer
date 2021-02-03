@@ -3,22 +3,20 @@ const canvas = document.getElementById("canvas");
 const wrapper = document.getElementById("wrapper");
 const ctx = canvas.getContext("2d");
 
+let dimension = 4;
 let minCanvasDim;
 let world;
 let imageData;
+let frameId = null;
 
 let scale = 0.75;
-let dt = 16;
+let dt = 18;
 
-let camPos = [-1, -4];
+let camPos = [-4, 0];
 
 function getRotation(angle, scale) {
-  return [
-    Math.cos(angle) * scale,
-    Math.sin(angle) * scale
-  ]
+  return [Math.cos(angle) * scale, Math.sin(angle) * scale];
 }
-
 
 function draw() {
   if (dt > 24) {
@@ -36,7 +34,7 @@ function draw() {
   // camPos[1] += camSpeed * dt;
   // if (camPos[1] > camDist * 2) camPos[1] -= camDist * 2;
 
-  let angle = Math.atan2(camPos[1], camPos[0]) + (Math.PI / 8 * dt / 1000);
+  let angle = Math.atan2(camPos[1], camPos[0]) + ((Math.PI / 8) * dt) / 1000;
   camPos = getRotation(angle, 6);
 
   let start = performance.now();
@@ -46,17 +44,16 @@ function draw() {
     camPos,
     imageData.width,
     imageData.height,
-    minCanvasDim
+    minCanvasDim,
+    dimension
   );
 
   imageData = new ImageData(res, imageData.width);
   ctx.putImageData(imageData, 0, 0);
   dt = performance.now() - start;
-  console.log(
-    `update dt: ${dt.toFixed(0)}ms, scale: ${scale.toFixed(2)}`
-  );
+  console.log(`update dt: ${dt.toFixed(0)}ms, scale: ${scale.toFixed(2)}`);
 
-  requestAnimationFrame(draw);
+  frameId = requestAnimationFrame(draw);
 }
 
 function resize() {
@@ -115,9 +112,16 @@ async function init() {
 
   world = new lib.World();
 
-  stackSpheres(world, 3);
+  stackSpheres(world, dimension);
 
-  requestAnimationFrame(draw);
+  frameId = requestAnimationFrame(draw);
 }
+
+document.getElementById("dimension").addEventListener("change", event => {
+  cancelAnimationFrame(frameId);
+  dimension = Math.max(Math.min(parseInt(event.target.value, 10), 9), 2);
+  event.target.value = dimension;
+  init();
+});
 
 init().catch(err => console.error(err));

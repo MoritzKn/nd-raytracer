@@ -682,8 +682,7 @@ fn fill_sample_grid<V: Vector>(
     }
 }
 
-#[wasm_bindgen]
-pub fn update(
+fn update_n<V: Vector>(
     mut data: wasm_bindgen::Clamped<Vec<u8>>,
     world: &World,
     cam_pos: Vec<Float>,
@@ -691,9 +690,6 @@ pub fn update(
     height: isize,
     min_canvas_dim: Float,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
-    type V = NdVec<3>;
-
-    // let cam_pos = V::pad(&[-4.0, -5.0], 1.0);
     let cam_pos = V::pad(&cam_pos, 2.0);
     let world = DimensionalWorld::from_world(world, cam_pos);
 
@@ -702,8 +698,31 @@ pub fn update(
 
     init_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 27);
     fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 27, 9, 0.1);
-    fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 9, 3, 0.1);
+    fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 9, 3, 0.05);
     fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 3, 1, 0.1);
 
     data
+}
+
+#[wasm_bindgen]
+pub fn update(
+    mut data: wasm_bindgen::Clamped<Vec<u8>>,
+    world: &World,
+    cam_pos: Vec<Float>,
+    width: isize,
+    height: isize,
+    min_canvas_dim: Float,
+    dimension: usize,
+) -> wasm_bindgen::Clamped<Vec<u8>> {
+    match dimension {
+        2 => update_n::<NdVec<2>>(data, world, cam_pos, width, height, min_canvas_dim),
+        3 => update_n::<NdVec<3>>(data, world, cam_pos, width, height, min_canvas_dim),
+        4 => update_n::<NdVec<4>>(data, world, cam_pos, width, height, min_canvas_dim),
+        5 => update_n::<NdVec<5>>(data, world, cam_pos, width, height, min_canvas_dim),
+        6 => update_n::<NdVec<6>>(data, world, cam_pos, width, height, min_canvas_dim),
+        7 => update_n::<NdVec<7>>(data, world, cam_pos, width, height, min_canvas_dim),
+        8 => update_n::<NdVec<8>>(data, world, cam_pos, width, height, min_canvas_dim),
+        9 => update_n::<NdVec<9>>(data, world, cam_pos, width, height, min_canvas_dim),
+        _ => data,
+    }
 }

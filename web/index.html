@@ -18,15 +18,23 @@
         box-sizing: border-box;
         overflow: hidden;
       }
+
       body {
         margin: 0;
         font-family: monospace;
         font-size: 15px;
       }
+
       #wrapper {
         width: 100vw;
         height: 100vh;
         margin: 0 0;
+      }
+
+      #dimension {
+        position: absolute;
+        top: 10px;
+        left: 10px;
       }
     </style>
   </head>
@@ -35,5 +43,6 @@
     <div id="wrapper">
       <canvas id="canvas"></canvas>
     </div>
+    <input type="number" min="2" max="9" id="dimension" value="4" />
   </body>
 </html>
