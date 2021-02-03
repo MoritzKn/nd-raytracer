@@ -10,11 +10,11 @@ let imageData;
 function draw() {
   console.time("update");
   const res = lib.update(
+    imageData.data,
     world,
     canvas.width,
     canvas.height,
     minCanvasDim,
-    imageData.data
   );
 
   imageData = new ImageData(res, canvas.width);

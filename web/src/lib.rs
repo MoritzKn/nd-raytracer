@@ -221,10 +221,12 @@ impl<const L: usize> std::ops::Div<Float> for NdVec<L> {
 }
 
 #[wasm_bindgen]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     array: [Float; 4],
 }
+
+type ColorInt = [u8; 4];
 
 #[wasm_bindgen]
 impl Color {
@@ -253,18 +255,18 @@ impl Color {
         self.array[3]
     }
 
-    fn from_int(slice: &[u8; 4]) -> Self {
+    fn from_int(slice: &ColorInt) -> Self {
         Self {
             array: [
-                (slice[0] / 255) as Float,
-                (slice[1] / 255) as Float,
-                (slice[2] / 255) as Float,
-                (slice[3] / 255) as Float,
+                (slice[0] as Float / 255.0),
+                (slice[1] as Float / 255.0),
+                (slice[2] as Float / 255.0),
+                (slice[3] as Float / 255.0),
             ],
         }
     }
 
-    fn to_int(&self) -> [u8; 4] {
+    fn to_int(&self) -> ColorInt {
         [
             (self.array[0] * 255.0) as u8,
             (self.array[1] * 255.0) as u8,
@@ -282,15 +284,36 @@ impl Color {
         self.array[2] = self.blue() * invert + top.blue() * alpha;
     }
 
+    fn mix(&self, other: &Color) -> Color {
+        Self::rgba(
+            (self.red() + other.red()) / 2.0,
+            (self.green() + other.green()) / 2.0,
+            (self.blue() + other.blue()) / 2.0,
+            (self.alpha() + other.alpha()) / 2.0,
+        )
+    }
+
     fn adjust_brightness(&mut self, brightness: Float) {
         self.array[0] = self.red() * brightness;
         self.array[1] = self.green() * brightness;
         self.array[2] = self.blue() * brightness;
     }
+
+    fn div(&self, other: &Self) -> Float {
+        if self == other {
+            return 0.0;
+        }
+
+        let rd = self.red() - other.red();
+        let gd = self.green() - other.green();
+        let bd = self.blue() - other.blue();
+
+        Float::sqrt(rd * rd + gd * gd + bd * bd)
+    }
 }
 
 static BG_COLOR: Color = Color {
-    array: [0.92, 0.92, 0.92, 1.0],
+    array: [0.8, 0.8, 0.8, 1.0],
 };
 
 #[wasm_bindgen]
@@ -471,7 +494,7 @@ fn set_px(
     width: isize,
     x: isize,
     y: isize,
-    color: [u8; 4],
+    color: ColorInt,
 ) {
     let index = ((x + y * width) * 4) as usize;
 
@@ -481,7 +504,7 @@ fn set_px(
     data[index + 3] = 255; // color[3];
 }
 
-fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: isize, x: isize, y: isize) -> [u8; 4] {
+fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: isize, x: isize, y: isize) -> ColorInt {
     let index = ((x + y * width) * 4) as usize;
 
     [
@@ -492,132 +515,214 @@ fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: isize, x: isize, y: isiz
     ]
 }
 
+fn get_px_checked(
+    data: &wasm_bindgen::Clamped<Vec<u8>>,
+    width: isize,
+    x: isize,
+    y: isize,
+) -> Option<ColorInt> {
+    let index = ((x + y * width) * 4) as usize;
+
+    // Overflows so we only need to check upper limit
+    if index > data.len() {
+        None
+    } else {
+        Some([
+            data[index + 0],
+            data[index + 1],
+            data[index + 2],
+            data[index + 3],
+        ])
+    }
+}
+
+fn find_max_deviation(
+    center: Color,
+    top: Option<Color>,
+    right: Option<Color>,
+    bottom: Option<Color>,
+    left: Option<Color>,
+) -> Float {
+    let mut div = 0.0;
+
+    if let Some(top) = top {
+        div = Float::max(div, center.div(&top));
+    }
+    if let Some(right) = right {
+        div = Float::max(div, center.div(&right));
+    }
+    if let Some(bottom) = bottom {
+        div = Float::max(div, center.div(&bottom));
+    }
+    if let Some(left) = left {
+        div = Float::max(div, center.div(&left));
+    }
+
+    div
+}
+
+fn init_sample_grid<V: Vector>(
+    data: &mut wasm_bindgen::Clamped<Vec<u8>>,
+    world: &DimensionalWorld<V>,
+    width: isize,
+    height: isize,
+    min_canvas_dim: Float,
+    step: isize,
+) {
+    let offset_x = (min_canvas_dim - width as Float) / 2.0;
+    let offset_y = (min_canvas_dim - height as Float) / 2.0;
+
+    let step_offset = step / 2;
+    for y in (step_offset..height).step_by(step as usize) {
+        let rel_y = 1.0 - (y as Float + offset_y) / min_canvas_dim;
+
+        for x in (step_offset..width).step_by(step as usize) {
+            let rel_x = (x as Float + offset_x) / min_canvas_dim;
+
+            let color = sample::<V>(&world, rel_x, rel_y).to_int();
+            set_px(data, width, x, y, color);
+        }
+    }
+}
+
+fn fill_sample_grid<V: Vector>(
+    data: &mut wasm_bindgen::Clamped<Vec<u8>>,
+    world: &DimensionalWorld<V>,
+    width: isize,
+    height: isize,
+    min_canvas_dim: Float,
+    step: isize,
+    substep: isize,
+    deviation_threshold: Float,
+    blur: bool,
+) {
+    let offset_x = (min_canvas_dim - width as Float) / 2.0;
+    let offset_y = (min_canvas_dim - height as Float) / 2.0;
+
+    let step_offset = step / 2;
+    let substep_offset = substep / 2;
+
+    for y in (step_offset..height).step_by(step as usize) {
+        for x in (step_offset..width).step_by(step as usize) {
+            let center = Color::from_int(&get_px(&data, width, x, y));
+            let top = get_px_checked(&data, width, x, y - step)
+                .as_ref()
+                .map(Color::from_int);
+            let right = get_px_checked(&data, width, x + step, y)
+                .as_ref()
+                .map(Color::from_int);
+            let bottom = get_px_checked(&data, width, x, y + step)
+                .as_ref()
+                .map(Color::from_int);
+            let left = get_px_checked(&data, width, x - step, y)
+                .as_ref()
+                .map(Color::from_int);
+
+            let max_div = find_max_deviation(center, top, bottom, left, right);
+
+            let resample = max_div > deviation_threshold;
+
+            let top = top.unwrap_or(center);
+            let right = right.unwrap_or(center);
+            let bottom = bottom.unwrap_or(center);
+            let left = left.unwrap_or(center);
+
+            let y_range = (y - step_offset + substep_offset)..(y + step_offset + 1);
+            let y_step = y;
+            for y in y_range.step_by(substep as usize) {
+                let rel_y = 1.0 - ((y) as Float + offset_y) / min_canvas_dim;
+
+                let x_range = (x - step_offset + substep_offset)..(x + step_offset + 1);
+                let x_step = x;
+
+                for x in x_range.step_by(substep as usize) {
+                    let rel_x = ((x) as Float + offset_x) / min_canvas_dim;
+
+                    if x == x_step && y == y_step {
+                        continue;
+                    }
+
+                    let color = if resample {
+                        sample::<V>(&world, rel_x, rel_y).to_int()
+                    } else {
+                        if blur {
+                            if x < x_step {
+                                if y < y_step {
+                                    center.mix(&left.mix(&top)).to_int()
+                                } else if y > y_step {
+                                    center.mix(&left.mix(&bottom)).to_int()
+                                } else {
+                                    center.mix(&left).to_int()
+                                }
+                            } else if x > x_step {
+                                if y < y_step {
+                                    center.mix(&right.mix(&top)).to_int()
+                                } else if y > y_step {
+                                    center.mix(&right.mix(&bottom)).to_int()
+                                } else {
+                                    center.mix(&right).to_int()
+                                }
+                            } else {
+                                if y < y_step {
+                                    center.mix(&center.mix(&top)).to_int()
+                                } else if y > y_step {
+                                    center.mix(&center.mix(&bottom)).to_int()
+                                } else {
+                                    unreachable!()
+                                }
+                            }
+                        } else {
+                            center.to_int()
+                        }
+                    };
+
+                    set_px(data, width, x, y, color);
+                }
+            }
+        }
+    }
+}
+
 #[wasm_bindgen]
 pub fn update(
-    world: &World,
-    width_i: isize,
-    height_i: isize,
-    min_canvas_dim: isize,
     mut data: wasm_bindgen::Clamped<Vec<u8>>,
+    world: &World,
+    width: isize,
+    height: isize,
+    min_canvas_dim: Float,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
-    let min_canvas_dim = min_canvas_dim as Float;
-    let width = width_i as Float;
-    let height = height_i as Float;
-
     type V = NdVec<4>;
 
     let world = DimensionalWorld::from_world(world);
 
-    let offset_x = (min_canvas_dim - width) / 2.0;
-    let offset_y = (min_canvas_dim - height) / 2.0;
+    // 53 ms
+    // init_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 9);
+    // fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 9, 1);
 
-    let step: isize = 3;
-    let offset = 1;
-    for y in (offset..height_i).step_by(step as usize) {
-        let rel_y = 1.0 - (y as Float + offset_y) / min_canvas_dim;
-
-        for x in (offset..width_i).step_by(step as usize) {
-            let rel_x = (x as Float + offset_x) / min_canvas_dim;
-
-            let color = sample::<V>(&world, rel_x, rel_y).to_int();
-            set_px(&mut data, width_i, x, y, color);
-        }
-    }
-
-    for y in 0..height_i {
-        let rel_y = 1.0 - (y as Float + offset_y) / min_canvas_dim;
-        let mode_y = y % step;
-        let mode_y = if mode_y == 0 && y + 1 >= height_i {
-            1
-        } else {
-            mode_y
-        };
-
-        let mode_y = -(mode_y - offset);
-
-        for x in 0..width_i {
-            let rel_x = (x as Float + offset_x) / min_canvas_dim;
-            let mode_x = x % step;
-            let mode_x = if mode_x == 0 && x + 1 >= width_i {
-                1
-            } else {
-                mode_x
-            };
-
-            let mode_x = -(mode_x - offset);
-
-            if mode_x != 0 || mode_y != 0 {
-                let center = get_px(&data, width_i, x + mode_x, y + mode_y);
-
-                set_px(&mut data, width_i, x, y, center);
-            }
-
-            // match mode_y {
-            //     0 => {
-            //         match mode_x {
-            //             0 => {
-            //                 // left top
-            //                 let color = get_px(&data, width_i, x + 1, y + 1);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             1 => {
-            //                 // center top
-            //                 let color = get_px(&data, width_i, x, y + 1);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             2 => {
-            //                 // right top
-            //                 let color = get_px(&data, width_i, x - 1, y + 1);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             _ => unreachable!(),
-            //         };
-            //     }
-            //     1 => {
-            //         match mode_x {
-            //             0 => {
-            //                 // // left center
-            //                 let color = get_px(&data, width_i, x + 1, y);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             1 => {
-            //                 // center center
-            //                 // px already done, do nothing
-            //                 // let color = get_px(&data, width_i, x, y);
-            //                 // set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             2 => {
-            //                 // right center
-            //                 let color = get_px(&data, width_i, x - 1, y);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             _ => unreachable!(),
-            //         };
-            //     }
-            //     2 => {
-            //         match mode_x {
-            //             0 => {
-            //                 // left bottom
-            //                 let color = get_px(&data, width_i, x + 1, y - 1);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             1 => {
-            //                 // center bottom
-            //                 let color = get_px(&data, width_i, x, y - 1);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             2 => {
-            //                 // right bottom
-            //                 let color = get_px(&data, width_i, x - 1, y - 1);
-            //                 set_px(&mut data, width_i, x, y, color);
-            //             }
-            //             _ => unreachable!(),
-            //         };
-            //     }
-            //     _ => unreachable!(),
-            // };
-        }
-    }
+    // 47 ms
+    init_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 27);
+    fill_sample_grid::<V>(
+        &mut data,
+        &world,
+        width,
+        height,
+        min_canvas_dim,
+        27,
+        3,
+        0.1,
+        false,
+    );
+    fill_sample_grid::<V>(
+        &mut data,
+        &world,
+        width,
+        height,
+        min_canvas_dim,
+        3,
+        1,
+        0.3,
+        false,
+    );
 
     data
 }
