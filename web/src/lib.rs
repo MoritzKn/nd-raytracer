@@ -466,6 +466,32 @@ fn sample<V: Vector>(world: &DimensionalWorld<V>, rel_x: Float, rel_y: Float) ->
     trace(world, &world.cam_pos, &ray, &world.light_pos)
 }
 
+fn set_px(
+    data: &mut wasm_bindgen::Clamped<Vec<u8>>,
+    width: usize,
+    x: usize,
+    y: usize,
+    color: [u8; 4],
+) {
+    let index = (x + y * width) * 4;
+
+    data[index + 0] = color[0];
+    data[index + 1] = color[1];
+    data[index + 2] = color[2];
+    data[index + 3] = 255; // color[3];
+}
+
+fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: usize, x: usize, y: usize) -> [u8; 4] {
+    let index = (x + y * width) * 4;
+
+    [
+        data[index + 0],
+        data[index + 1],
+        data[index + 2],
+        data[index + 3],
+    ]
+}
+
 #[wasm_bindgen]
 pub fn update(
     world: &World,
@@ -485,19 +511,116 @@ pub fn update(
     let offset_x = (min_canvas_dim - width) / 2.0;
     let offset_y = (min_canvas_dim - height) / 2.0;
 
-    for y in 0..height_i {
+    let step = 3;
+    let offset = 1;
+    for y in (offset..height_i).step_by(step) {
         let rel_y = 1.0 - (y as Float + offset_y) / min_canvas_dim;
 
-        for x in 0..width_i {
+        for x in (offset..width_i).step_by(step) {
             let rel_x = (x as Float + offset_x) / min_canvas_dim;
 
             let color = sample::<V>(&world, rel_x, rel_y).to_int();
+            set_px(&mut data, width_i, x, y, color);
+        }
+    }
 
-            let index = (x + y * width_i) * 4;
-            data[index + 0] = color[0];
-            data[index + 1] = color[1];
-            data[index + 2] = color[2];
-            data[index + 3] = 255; // color[3];
+    for y in 0..height_i {
+        let rel_y = 1.0 - (y as Float + offset_y) / min_canvas_dim;
+        let mode_y = y % step;
+        let mode_y = if mode_y == 0 && y + 1 >= height_i {
+            1
+        } else {
+            mode_y
+        };
+
+        let mode_y = -(mode_y as isize - offset as isize);
+
+        for x in 0..width_i {
+            let rel_x = (x as Float + offset_x) / min_canvas_dim;
+            let mode_x = x % step;
+            let mode_x = if mode_x == 0 && x + 1 >= width_i {
+                1
+            } else {
+                mode_x
+            };
+
+            let mode_x = -(mode_x as isize - offset as isize);
+
+            if mode_x != 0 || mode_y != 0 {
+                let center = get_px(
+                    &data,
+                    width_i,
+                    (x as isize + mode_x) as usize,
+                    (y as isize + mode_y) as usize,
+                );
+
+                set_px(&mut data, width_i, x, y, center);
+            }
+
+            // match mode_y {
+            //     0 => {
+            //         match mode_x {
+            //             0 => {
+            //                 // left top
+            //                 let color = get_px(&data, width_i, x + 1, y + 1);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             1 => {
+            //                 // center top
+            //                 let color = get_px(&data, width_i, x, y + 1);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             2 => {
+            //                 // right top
+            //                 let color = get_px(&data, width_i, x - 1, y + 1);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             _ => unreachable!(),
+            //         };
+            //     }
+            //     1 => {
+            //         match mode_x {
+            //             0 => {
+            //                 // // left center
+            //                 let color = get_px(&data, width_i, x + 1, y);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             1 => {
+            //                 // center center
+            //                 // px already done, do nothing
+            //                 // let color = get_px(&data, width_i, x, y);
+            //                 // set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             2 => {
+            //                 // right center
+            //                 let color = get_px(&data, width_i, x - 1, y);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             _ => unreachable!(),
+            //         };
+            //     }
+            //     2 => {
+            //         match mode_x {
+            //             0 => {
+            //                 // left bottom
+            //                 let color = get_px(&data, width_i, x + 1, y - 1);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             1 => {
+            //                 // center bottom
+            //                 let color = get_px(&data, width_i, x, y - 1);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             2 => {
+            //                 // right bottom
+            //                 let color = get_px(&data, width_i, x - 1, y - 1);
+            //                 set_px(&mut data, width_i, x, y, color);
+            //             }
+            //             _ => unreachable!(),
+            //         };
+            //     }
+            //     _ => unreachable!(),
+            // };
         }
     }
 

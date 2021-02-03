@@ -21,7 +21,7 @@ function draw() {
   ctx.putImageData(imageData, 0, 0);
   console.timeEnd("update");
 
-  requestAnimationFrame(draw);
+  // requestAnimationFrame(draw);
 }
 
 function resize() {
