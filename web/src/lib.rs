@@ -468,12 +468,12 @@ fn sample<V: Vector>(world: &DimensionalWorld<V>, rel_x: Float, rel_y: Float) ->
 
 fn set_px(
     data: &mut wasm_bindgen::Clamped<Vec<u8>>,
-    width: usize,
-    x: usize,
-    y: usize,
+    width: isize,
+    x: isize,
+    y: isize,
     color: [u8; 4],
 ) {
-    let index = (x + y * width) * 4;
+    let index = ((x + y * width) * 4) as usize;
 
     data[index + 0] = color[0];
     data[index + 1] = color[1];
@@ -481,8 +481,8 @@ fn set_px(
     data[index + 3] = 255; // color[3];
 }
 
-fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: usize, x: usize, y: usize) -> [u8; 4] {
-    let index = (x + y * width) * 4;
+fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: isize, x: isize, y: isize) -> [u8; 4] {
+    let index = ((x + y * width) * 4) as usize;
 
     [
         data[index + 0],
@@ -495,9 +495,9 @@ fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: usize, x: usize, y: usiz
 #[wasm_bindgen]
 pub fn update(
     world: &World,
-    width_i: usize,
-    height_i: usize,
-    min_canvas_dim: usize,
+    width_i: isize,
+    height_i: isize,
+    min_canvas_dim: isize,
     mut data: wasm_bindgen::Clamped<Vec<u8>>,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
     let min_canvas_dim = min_canvas_dim as Float;
@@ -511,12 +511,12 @@ pub fn update(
     let offset_x = (min_canvas_dim - width) / 2.0;
     let offset_y = (min_canvas_dim - height) / 2.0;
 
-    let step = 3;
+    let step: isize = 3;
     let offset = 1;
-    for y in (offset..height_i).step_by(step) {
+    for y in (offset..height_i).step_by(step as usize) {
         let rel_y = 1.0 - (y as Float + offset_y) / min_canvas_dim;
 
-        for x in (offset..width_i).step_by(step) {
+        for x in (offset..width_i).step_by(step as usize) {
             let rel_x = (x as Float + offset_x) / min_canvas_dim;
 
             let color = sample::<V>(&world, rel_x, rel_y).to_int();
@@ -533,7 +533,7 @@ pub fn update(
             mode_y
         };
 
-        let mode_y = -(mode_y as isize - offset as isize);
+        let mode_y = -(mode_y - offset);
 
         for x in 0..width_i {
             let rel_x = (x as Float + offset_x) / min_canvas_dim;
@@ -544,15 +544,10 @@ pub fn update(
                 mode_x
             };
 
-            let mode_x = -(mode_x as isize - offset as isize);
+            let mode_x = -(mode_x - offset);
 
             if mode_x != 0 || mode_y != 0 {
-                let center = get_px(
-                    &data,
-                    width_i,
-                    (x as isize + mode_x) as usize,
-                    (y as isize + mode_y) as usize,
-                );
+                let center = get_px(&data, width_i, x + mode_x, y + mode_y);
 
                 set_px(&mut data, width_i, x, y, center);
             }
