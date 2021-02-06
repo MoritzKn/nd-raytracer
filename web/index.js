@@ -1,40 +1,41 @@
-const libPromise = import("./pkg");
+const TAU = Math.PI * 2;
 
 const canvas = document.getElementById("canvas");
 const wrapper = document.getElementById("wrapper");
 const ctx = canvas.getContext("2d");
 
+// Never device the buffer in steps smaller than this...
+// Thats what we use a step in the rendering
 const largestStep = 27;
 
 let stop = true;
 let dimension = 3;
-let world;
 let frameId = null;
 
-let scale = 0.5;
-// delta time (ms)
-let dt = 32;
-let avgDt = dt;
+// Scale the canvas to hit the frame rate (targetDt)
+let scale = 1;
 const targetDt = 32;
+// delta time (ms)
+let dt = targetDt;
+// average dt over the last couple frames
+let avgDt = dt;
 
 let camPos = [-6, 0, -2, 0];
-
-const TAU = Math.PI * 2;
 
 const workerPool = [];
 
 function initWorkerPool() {
-  const count = Math.max(1, navigator.hardwareConcurrency - 1);
-  // const count = 4;
+  // if we leave some corse for the OS and the browser we get more time in our workers
+  const count = Math.max(1, navigator.hardwareConcurrency - 2);
   for (var i = 0; i < count; i++) {
     workerPool.push(new Worker("worker.js"));
   }
   workerPool.msgId = 0;
+  workerPool.pending = [];
   console.log(`Created ${workerPool.length} workers`);
 }
 
 function broadcast(type, data) {
-  console.log("broadcast", type, data);
   return Promise.all(workerPool.map(w => send(w, type, data)));
 }
 
@@ -45,6 +46,7 @@ function send(worker, type, data) {
   if (data && data.data && data.data.buffer) {
     transfer.push(data.data.buffer);
   }
+  worker.busy = true;
   worker.postMessage({ type, data, id: messageId }, transfer);
 
   return new Promise((resolve, reject) => {
@@ -53,6 +55,8 @@ function send(worker, type, data) {
 
       if (id === messageId) {
         worker.removeEventListener("message", onMessage);
+        worker.busy = false;
+        runPendingJobs();
 
         if (error) {
           reject(error);
@@ -64,6 +68,32 @@ function send(worker, type, data) {
 
     worker.addEventListener("message", onMessage);
   });
+}
+
+function runPendingJobs() {
+  workerPool.forEach(worker => {
+    if (!worker.busy && workerPool.pending.length > 0) {
+      const job = workerPool.pending.pop();
+      send(worker, job.type, job.data).then(job.resolve, job.reject);
+    }
+  });
+}
+
+function schedule(type, data, random) {
+  let resolve;
+  let reject;
+  const promise = new Promise(function(_resolve, _reject) {
+    resolve = _resolve;
+    reject = _reject;
+  });
+  if (random && Math.random() > 0.5) {
+    workerPool.pending.unshift({ type, data, resolve, reject });
+  } else {
+    workerPool.pending.push({ type, data, resolve, reject });
+  }
+  runPendingJobs();
+
+  return promise;
 }
 
 function getRotation(angle, scale) {
@@ -101,28 +131,29 @@ async function draw() {
 
   let timeStart = performance.now();
 
-  let threads = workerPool.length * 2;
-  let chunkSize =
-    Math.ceil(canvas.height / threads / largestStep) * largestStep;
+  let jobs = workerPool.length * 2;
+  let chunkSize = Math.ceil(canvas.height / jobs / largestStep) * largestStep;
   let chunks = [];
   const imageDataWidth = canvas.width;
-
-  for (var i = 0; i < threads; i++) {
-    const worker = workerPool[i % workerPool.length];
+  for (var i = 0; i < jobs; i++) {
     let start = chunkSize * i;
     let end = Math.min(start + chunkSize, canvas.height);
     let imageData = ctx.getImageData(0, start, imageDataWidth, end);
 
     chunks.push(
-      send(worker, "update", {
-        data: imageData.data,
-        camPos,
-        start,
-        end,
-        width: canvas.width,
-        height: canvas.height,
-        dimension
-      })
+      schedule(
+        "update",
+        {
+          data: imageData.data,
+          camPos,
+          start,
+          end,
+          width: canvas.width,
+          height: canvas.height,
+          dimension
+        },
+        false
+      )
     );
   }
 
@@ -157,7 +188,7 @@ function resize() {
     wrapper.clientWidth / canvas.width,
     wrapper.clientHeight / canvas.height
   );
-  canvas.style.transform = `scale(${canvasScale + 0.01})`;
+  canvas.style.transform = `scale(${Math.max(canvasScale + 0.01, 1)})`;
   canvas.style.transformOrigin = `center`;
 
   console.log(

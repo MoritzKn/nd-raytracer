@@ -98,6 +98,7 @@ async function start({ dimension }) {
   //   [-6.0, 6.0, 6.0, 4.0],
   //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
   // );
+
   // world.add_light(
   //   [6.0, 6.0, 6.0, 3.0],
   //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
@@ -122,10 +123,10 @@ async function start({ dimension }) {
   // world.add_sphere([1.2], new lib.Sphere(2, lib.Color.rgba(0, 1, 0.5, 0.5)));
   // world.add_sphere([-2], new lib.Sphere(1.5, lib.Color.rgba(0, 0.5, 1, 1)));
 
-  for (var i = -3; i <= 3; i++) {
-    for (var j = -3; j <= 3; j++) {
+  for (var i = -2; i <= 2; i++) {
+    for (var j = -2; j <= 2; j++) {
       world.add_sphere(
-        [i * 0.9, j * 0.9, -3],
+        [i * 1.2, j * 1.2, -3],
         new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.9, 0.9, 1))
       );
     }
@@ -133,19 +134,19 @@ async function start({ dimension }) {
 
   world.add_sphere(
     [0, 4.5],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
   );
   world.add_sphere(
     [4.5, 0],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
   );
   world.add_sphere(
     [0, -4.5],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
   );
   world.add_sphere(
     [-4.5, 0],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
   );
 }
 

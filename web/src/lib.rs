@@ -739,7 +739,9 @@ fn fill_sample_grid<V: Vector>(
                 .as_ref()
                 .map(Color::from_int);
 
-            let resample = test_deviation(center, top, bottom, left, right, deviation_threshold);
+            let resample = top.is_none()
+                || bottom.is_none()
+                || test_deviation(center, top, bottom, left, right, deviation_threshold);
 
             for substep_y in substep_range_y.clone() {
                 let rel_y = 1.0 - (substep_y as Float + offset_y) / min_dim;
@@ -779,14 +781,15 @@ fn update_n<V: Vector>(
     let world = DimensionalWorld::from_world(world, cam_pos);
 
     init_sample_grid::<V>(&mut data, &world, start, end, width, height, min_dim, 9);
+    // fill_sample_grid::<V>(
+    //     &mut data, &world, start, end, width, height, min_dim, 27, 9, 0.05,
+    // );
     fill_sample_grid::<V>(
         &mut data, &world, start, end, width, height, min_dim, 9, 3, 0.05,
     );
     fill_sample_grid::<V>(
         &mut data, &world, start, end, width, height, min_dim, 3, 1, 0.1,
     );
-
-    // init_sample_grid::<V>(&mut data, &world, start, end, width, height, min_dim, 1);
 
     data
 }
