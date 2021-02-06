@@ -324,10 +324,6 @@ impl Color {
     }
 
     fn div(&self, other: &Self) -> Float {
-        if self == other {
-            return 0.0;
-        }
-
         let rd = self.red() - other.red();
         let gd = self.green() - other.green();
         let bd = self.blue() - other.blue();
@@ -622,29 +618,44 @@ fn get_px_checked(
     }
 }
 
-fn find_max_deviation(
+fn div_color_int(a: &ColorInt, b: &ColorInt) -> Float {
+    let rd = a[0] - b[0];
+    let gd = a[1] - b[1];
+    let bd = a[2] - b[2];
+
+    Float::sqrt((rd * rd + gd * gd + bd * bd) as Float)
+}
+
+fn test_deviation(
     center: Color,
     top: Option<Color>,
     right: Option<Color>,
     bottom: Option<Color>,
     left: Option<Color>,
-) -> Float {
-    let mut div = 0.0;
-
+    threshold: Float,
+) -> bool {
     if let Some(top) = top {
-        div = Float::max(div, center.div(&top));
+        if center != top && center.div(&top) > threshold {
+            return true;
+        };
     }
     if let Some(right) = right {
-        div = Float::max(div, center.div(&right));
+        if center != right && center.div(&right) > threshold {
+            return true;
+        }
     }
     if let Some(bottom) = bottom {
-        div = Float::max(div, center.div(&bottom));
+        if center != bottom && center.div(&bottom) > threshold {
+            return true;
+        }
     }
     if let Some(left) = left {
-        div = Float::max(div, center.div(&left));
+        if center != left && center.div(&left) > threshold {
+            return true;
+        }
     }
 
-    div
+    false
 }
 
 fn init_sample_grid<V: Vector>(
@@ -715,8 +726,7 @@ fn fill_sample_grid<V: Vector>(
                 .as_ref()
                 .map(Color::from_int);
 
-            let max_div = find_max_deviation(center, top, bottom, left, right);
-            let resample = max_div > deviation_threshold;
+            let resample = test_deviation(center, top, bottom, left, right, deviation_threshold);
 
             for substep_y in substep_range_y.clone() {
                 let rel_y = 1.0 - (substep_y as Float + offset_y) / min_dim;
@@ -753,13 +763,13 @@ fn update_n<V: Vector>(
     let cam_pos = V::pad(&cam_pos, -8.0);
     let world = DimensionalWorld::from_world(world, cam_pos);
 
-    // init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 1);
-    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27, 1, 0.1);
-
     init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3);
+    fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3, 1, 0.1);
+
+    // init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27);
     // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27, 9, 0.05);
     // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 9, 3, 0.05);
-    fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3, 1, 0.05);
+    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3, 1, 0.05);
 
     data
 }

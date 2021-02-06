@@ -11,7 +11,8 @@ let frameId = null;
 
 let scale = 1;
 // delta time (ms)
-let dt = 18;
+let dt = 32;
+let avgDt = dt;
 const targetDt = 32;
 
 let camPos = [-6, 0, -2, 0];
@@ -59,7 +60,12 @@ function draw() {
   imageData = new ImageData(res, imageData.width);
   ctx.putImageData(imageData, 0, 0);
   dt = performance.now() - start;
-  console.log(`update dt: ${dt.toFixed(2)}ms, scale: ${scale.toFixed(2)}`);
+  avgDt = (avgDt * 30 + dt) / 31;
+  console.log(
+    `update dt: ${dt.toFixed(2)}ms, avg: ${avgDt.toFixed(
+      2
+    )}ms, scale: ${scale.toFixed(2)}`
+  );
 
   frameId = requestAnimationFrame(draw);
 }
