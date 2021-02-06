@@ -25,8 +25,11 @@ let camPos = [-6, 0, -2, 0];
 const workerPool = [];
 
 function initWorkerPool() {
-  // if we leave some corse for the OS and the browser we get more time in our workers
-  const count = Math.max(1, navigator.hardwareConcurrency - 2);
+  let count = 6;
+  if (navigator.hardwareConcurrency) {
+    // if we leave some corse for the OS and the browser we get more time in our workers
+    count = Math.max(navigator.hardwareConcurrency - 2, 1);
+  }
   for (var i = 0; i < count; i++) {
     workerPool.push(new Worker("worker.js"));
   }
