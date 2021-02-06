@@ -1,4 +1,4 @@
-const TARGET_FPS = 30;
+const TARGET_FPS = 24;
 
 export class DeltaTime {
   constructor() {
@@ -38,7 +38,7 @@ export class DeltaTime {
     if (this.lastReset < 30) {
       maxDiff = 0.5;
     } else {
-      maxDiff = 0.25;
+      maxDiff = 0.2;
     }
     const diff = Math.abs(1 - this.differenceTarget());
     return diff < maxDiff;

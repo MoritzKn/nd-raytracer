@@ -14,7 +14,7 @@ const dt = new DeltaTime();
 const largestStep = 27;
 
 let stop = true;
-let dimension = 3;
+let dimension = 4;
 let frameId = null;
 
 // Scale the canvas to hit the frame rate (targetDt)
@@ -115,6 +115,7 @@ async function start() {
   stop = false;
   document.getElementById("dimension").value = dimension;
   await workerPool.broadcast("start", { dimension });
+  dt.resetAvg();
 
   frameId = requestAnimationFrame(draw);
 }
@@ -129,7 +130,7 @@ document.getElementById("dimension").addEventListener("change", event => {
   setTimeout(function() {
     dimension = Math.max(Math.min(parseInt(event.target.value, 10), 9), 2);
     start().catch(err => console.error(err));
-  }, dt * 2);
+  }, dt.avgDt * 2);
 });
 
 start().catch(err => console.error(err));
