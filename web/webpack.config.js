@@ -9,10 +9,6 @@ const output = {
 };
 
 const plugins = [
-  new HtmlWebpackPlugin({
-    template: "index.html"
-  }),
-
   new WasmPackPlugin({
     crateDirectory: path.resolve(__dirname, "."),
     forceMode: "production"
@@ -23,16 +19,21 @@ const mode = "development"; // "development";
 
 module.exports = [
   {
-    entry: "./index.js",
+    entry: "./src/index.js",
     output: {
       ...output,
       filename: "index.js"
     },
-    plugins,
+    plugins: [
+      ...plugins,
+      new HtmlWebpackPlugin({
+        template: "./src/index.html"
+      })
+    ],
     mode
   },
   {
-    entry: "./worker.js",
+    entry: "./src/worker.js",
     target: "webworker",
     output: {
       ...output,

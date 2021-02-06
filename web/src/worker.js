@@ -1,4 +1,4 @@
-const libPromise = import("./pkg");
+const libPromise = import("../pkg");
 let lib;
 let world;
 

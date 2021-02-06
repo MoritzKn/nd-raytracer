@@ -626,14 +626,6 @@ fn get_px_checked(
     }
 }
 
-fn div_color_int(a: &ColorInt, b: &ColorInt) -> Float {
-    let rd = a[0] - b[0];
-    let gd = a[1] - b[1];
-    let bd = a[2] - b[2];
-
-    Float::sqrt((rd * rd + gd * gd + bd * bd) as Float)
-}
-
 fn test_deviation(
     center: Color,
     top: Option<Color>,

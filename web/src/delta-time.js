@@ -37,10 +37,8 @@ export class DeltaTime {
     let maxDiff;
     if (this.lastReset < 30) {
       maxDiff = 0.5;
-    } else if (this.lastReset < 160) {
-      maxDiff = 0.2;
     } else {
-      maxDiff = 0.1;
+      maxDiff = 0.25;
     }
     const diff = Math.abs(1 - this.differenceTarget());
     return diff < maxDiff;
