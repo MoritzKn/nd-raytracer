@@ -276,23 +276,37 @@ impl Color {
         ]
     }
 
+    fn normalize(&self) -> Color {
+        let len = Float::sqrt(
+            self.red() * self.red() + self.green() * self.green() + self.blue() * self.blue(),
+        );
+
+        Self::rgba(
+            self.red() * len,
+            self.green() * len,
+            self.blue() * len,
+            self.alpha(),
+        )
+    }
+
     fn apply(&mut self, top: &Self) {
+        let normal = top.normalize();
         let alpha = top.alpha();
         let invert = 1.0 - alpha;
 
-        self.array[0] = self.red() * invert + top.red() * alpha;
-        self.array[1] = self.green() * invert + top.green() * alpha;
-        self.array[2] = self.blue() * invert + top.blue() * alpha;
+        self.array[0] = self.array[0] * invert + self.array[0] * normal.red() * alpha;
+        self.array[1] = self.array[1] * invert + self.array[1] * normal.green() * alpha;
+        self.array[2] = self.array[2] * invert + self.array[2] * normal.blue() * alpha;
     }
 
-    // fn mix(&self, other: &Color) -> Color {
-    //     Self::rgba(
-    //         (self.red() + other.red()) / 2.0,
-    //         (self.green() + other.green()) / 2.0,
-    //         (self.blue() + other.blue()) / 2.0,
-    //         (self.alpha() + other.alpha()) / 2.0,
-    //     )
-    // }
+    fn mix(&mut self, top: &Color) {
+        let alpha = top.alpha();
+        let invert = 1.0 - alpha;
+
+        self.array[0] = self.array[0] * invert + top.red() * alpha;
+        self.array[1] = self.array[1] * invert + top.green() * alpha;
+        self.array[2] = self.array[2] * invert + top.blue() * alpha;
+    }
 
     fn adjust_brightness(&mut self, brightness: Float) {
         self.array[0] = self.red() * brightness;
@@ -373,7 +387,7 @@ impl<V: Vector> DimensionalWorld<V> {
         Self {
             center: V::new(),
             cam_pos,
-            light_pos: V::pad(&[-3.0, -3.0, 3.0], 3.0),
+            light_pos: V::pad(&[-12.0, -12.0], 8.0),
             spheres: world
                 .spheres
                 .iter()
@@ -456,6 +470,7 @@ fn get_light_color<V: Vector>(shadow_casters: Vec<Intersection<V>>) -> Color {
 
     for sc in shadow_casters {
         light_color.apply(&sc.surface.color);
+        light_color.adjust_brightness(1.0 - sc.surface.color.alpha())
     }
 
     light_color
@@ -468,19 +483,20 @@ fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, light_pos
     for hit in all {
         let hit_to_light = (*light_pos - hit.position).normalize();
         let angle = hit.normal.dot(&hit_to_light);
-        let brightness = Float::max(angle * 0.3 + 0.4, 0.0) + 0.3;
+        // The more the brightness of the light is influenced by the angle the softer curves will look
+        let brightness = Float::max(angle * 0.1 + 0.9, 0.0);
         let mut hit_color = hit.surface.color;
 
-        hit_color.adjust_brightness(brightness);
-
-        let direct_light_color =
+        let mut direct_light_color =
             get_light_color(get_all_intersections(world, &hit.position, &hit_to_light));
+
+        direct_light_color.adjust_brightness(brightness);
 
         hit_color.apply(&Color::rgba(
             direct_light_color.red(),
             direct_light_color.green(),
             direct_light_color.blue(),
-            0.15,
+            0.6,
         ));
 
         // let ambient_light_color =
@@ -494,7 +510,7 @@ fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, light_pos
         // ));
 
         // color = hit_color;
-        color.apply(&hit_color);
+        color.mix(&hit_color);
     }
 
     color
