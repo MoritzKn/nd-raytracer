@@ -34,7 +34,7 @@
         justify-content: center;
       }
 
-      #dimension {
+      .controls {
         position: absolute;
         top: 10px;
         left: 10px;
@@ -46,6 +46,16 @@
     <div id="wrapper">
       <canvas id="canvas"></canvas>
     </div>
-    <input type="number" min="2" max="9" id="dimension" value="4" />
+    <div class="controls">
+      Dimensions:
+      <input
+        type="number"
+        min="2"
+        max="9"
+        id="dimension"
+        onfocus="javascript:this.select()"
+        value="4"
+      />
+    </div>
   </body>
 </html>
