@@ -1,8 +1,11 @@
+import { WorkerPool } from "./worker-pool";
+
 const TAU = Math.PI * 2;
 
 const canvas = document.getElementById("canvas");
 const wrapper = document.getElementById("wrapper");
 const ctx = canvas.getContext("2d");
+const workerPool = new WorkerPool("worker.js");
 
 // Never device the buffer in steps smaller than this...
 // Thats what we use a step in the rendering
@@ -21,83 +24,6 @@ let dt = targetDt;
 let avgDt = dt;
 
 let camPos = [-6, 0, -2, 0];
-
-const workerPool = [];
-
-function initWorkerPool() {
-  let count = 6;
-  if (navigator.hardwareConcurrency) {
-    // if we leave some corse for the OS and the browser we get more time in our workers
-    count = Math.max(navigator.hardwareConcurrency - 2, 1);
-  }
-  for (var i = 0; i < count; i++) {
-    workerPool.push(new Worker("worker.js"));
-  }
-  workerPool.msgId = 0;
-  workerPool.pending = [];
-  console.log(`Created ${workerPool.length} workers`);
-}
-
-function broadcast(type, data) {
-  return Promise.all(workerPool.map(w => send(w, type, data)));
-}
-
-function send(worker, type, data) {
-  workerPool.msgId += 1;
-  const messageId = workerPool.msgId;
-  let transfer = [];
-  if (data && data.data && data.data.buffer) {
-    transfer.push(data.data.buffer);
-  }
-  worker.busy = true;
-  worker.postMessage({ type, data, id: messageId }, transfer);
-
-  return new Promise((resolve, reject) => {
-    const onMessage = event => {
-      const { type, id, data, error } = event.data;
-
-      if (id === messageId) {
-        worker.removeEventListener("message", onMessage);
-        worker.busy = false;
-        runPendingJobs();
-
-        if (error) {
-          reject(error);
-        } else {
-          resolve(data);
-        }
-      }
-    };
-
-    worker.addEventListener("message", onMessage);
-  });
-}
-
-function runPendingJobs() {
-  workerPool.forEach(worker => {
-    if (!worker.busy && workerPool.pending.length > 0) {
-      const job = workerPool.pending.pop();
-      send(worker, job.type, job.data).then(job.resolve, job.reject);
-    }
-  });
-}
-
-function schedule(type, data, random) {
-  let resolve;
-  let reject;
-  const promise = new Promise(function(_resolve, _reject) {
-    resolve = _resolve;
-    reject = _reject;
-  });
-  if (random && Math.random() > 0.5) {
-    workerPool.pending.unshift({ type, data, resolve, reject });
-  } else {
-    workerPool.pending.push({ type, data, resolve, reject });
-  }
-  runPendingJobs();
-
-  return promise;
-}
 
 function getRotation(angle, scale) {
   return [Math.cos(angle) * scale, Math.sin(angle) * scale];
@@ -134,7 +60,7 @@ async function draw() {
 
   let timeStart = performance.now();
 
-  let jobs = workerPool.length * 2;
+  let jobs = workerPool.size() * 2;
   let chunkSize = Math.ceil(canvas.height / jobs / largestStep) * largestStep;
   let chunks = [];
   const imageDataWidth = canvas.width;
@@ -144,7 +70,7 @@ async function draw() {
     let imageData = ctx.getImageData(0, start, imageDataWidth, end);
 
     chunks.push(
-      schedule(
+      workerPool.schedule(
         "update",
         {
           data: imageData.data,
@@ -204,12 +130,11 @@ function resize() {
 async function start() {
   stop = false;
   document.getElementById("dimension").value = dimension;
-  await broadcast("start", { dimension });
+  await workerPool.broadcast("start", { dimension });
 
   frameId = requestAnimationFrame(draw);
 }
 
-initWorkerPool();
 window.addEventListener("resize", resize);
 resize();
 
