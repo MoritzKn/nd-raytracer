@@ -116,7 +116,7 @@ function cube(world, dim, pos, i) {
   let count = 4;
   let scale = 2;
   let radius = 0.4;
-  let outline = false;
+  let outline = true;
 
   if (dim === 0) {
     const axies = pos.filter(c => Math.abs(c) === scale / 2).length;
@@ -159,28 +159,53 @@ async function init() {
   world = new lib.World();
 
   stackSpheres(world, dimension);
-  // cube(world, dimension, [], true, 0);
+  cube(world, dimension, [], true, 0);
+
+  world.add_light(
+    [-12.0, -12.0, 6.0, 6.0],
+    new lib.Light(lib.Color.rgba(1, 1, 1, 0.6))
+  );
+
+  world.add_light(
+    [-6.0, 6.0, 6.0, 4.0],
+    new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
+  );
+  world.add_light(
+    [6.0, 6.0, 6.0, 3.0],
+    new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
+  );
+
+  // world.add_sphere([3], new lib.Sphere(2.5, lib.Color.rgba(0.9, 0.9, 0.9, 1)));
+  // world.add_sphere([-1, 1], new lib.Sphere(0.4, lib.Color.rgba(0, 1, 0, 0.5)));
+  // world.add_sphere(
+  //   [-1, 0],
+  //   new lib.Sphere(0.4, lib.Color.rgba(0, 0.5, 0, 0.5))
+  // );
+  // world.add_sphere(
+  //   [-1, -1],
+  //   new lib.Sphere(0.4, lib.Color.rgba(0.5, 1, 0.5, 0.5))
+  // );
 
   // world.add_sphere([], new lib.Sphere(3, lib.Color.rgba(1, 0.5, 0, 0.1)));
   // world.add_sphere([1.2], new lib.Sphere(2, lib.Color.rgba(0, 1, 0.5, 0.5)));
   // world.add_sphere([-2], new lib.Sphere(1.5, lib.Color.rgba(0, 0.5, 1, 1)));
-
-  world.add_sphere(
-    [0, 4],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  );
-  world.add_sphere(
-    [4, 0],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  );
-  world.add_sphere(
-    [0, -4],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  );
-  world.add_sphere(
-    [-4, 0],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  );
+  //
+  // world.add_sphere(
+  //   [0, 4.5],
+  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
+  // );
+  // world.add_sphere(
+  //   [4.5, 0],
+  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
+  // );
+  // world.add_sphere(
+  //   [0, -4.5],
+  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
+  // );
+  // world.add_sphere(
+  //   [-4.5, 0],
+  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
+  // );
 
   // world.add_sphere(
   //   [-12, -12, 4, 4],

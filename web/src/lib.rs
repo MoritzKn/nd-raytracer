@@ -290,22 +290,27 @@ impl Color {
     }
 
     fn apply(&mut self, top: &Self) {
-        let normal = top.normalize();
         let alpha = top.alpha();
         let invert = 1.0 - alpha;
 
-        self.array[0] = self.array[0] * invert + self.array[0] * normal.red() * alpha;
-        self.array[1] = self.array[1] * invert + self.array[1] * normal.green() * alpha;
-        self.array[2] = self.array[2] * invert + self.array[2] * normal.blue() * alpha;
+        self.array[0] = self.red() * invert + self.red() * top.red() * alpha;
+        self.array[1] = self.green() * invert + self.green() * top.green() * alpha;
+        self.array[2] = self.blue() * invert + self.blue() * top.blue() * alpha;
     }
 
     fn mix(&mut self, top: &Color) {
         let alpha = top.alpha();
         let invert = 1.0 - alpha;
 
-        self.array[0] = self.array[0] * invert + top.red() * alpha;
-        self.array[1] = self.array[1] * invert + top.green() * alpha;
-        self.array[2] = self.array[2] * invert + top.blue() * alpha;
+        self.array[0] = self.red() * invert + top.red() * alpha;
+        self.array[1] = self.green() * invert + top.green() * alpha;
+        self.array[2] = self.blue() * invert + top.blue() * alpha;
+    }
+
+    fn add(&mut self, top: &Color) {
+        self.array[0] = self.red() + top.red() * top.alpha();
+        self.array[1] = self.green() + top.green() * top.alpha();
+        self.array[2] = self.blue() + top.blue() * top.alpha();
     }
 
     fn adjust_brightness(&mut self, brightness: Float) {
@@ -313,6 +318,10 @@ impl Color {
         self.array[1] = self.green() * brightness;
         self.array[2] = self.blue() * brightness;
     }
+
+    // fn set_alpha(&mut self, alpha: Float) {
+    //     self.array[3] = alpha;
+    // }
 
     fn div(&self, other: &Self) -> Float {
         if self == other {
@@ -339,6 +348,20 @@ pub struct Surface {
 
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
+pub struct Light {
+    color: Color,
+}
+
+#[wasm_bindgen]
+impl Light {
+    #[wasm_bindgen(constructor)]
+    pub fn new(color: Color) -> Self {
+        Self { color }
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug, Clone)]
 pub struct Sphere {
     radius: Float,
     surface: Surface,
@@ -359,18 +382,27 @@ impl Sphere {
 #[derive(Clone)]
 pub struct World {
     spheres: Vec<(Vec<Float>, Sphere)>,
+    lights: Vec<(Vec<Float>, Light)>,
 }
 
 #[wasm_bindgen]
 impl World {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self { spheres: vec![] }
+        Self {
+            spheres: vec![],
+            lights: vec![],
+        }
     }
 
     #[wasm_bindgen]
     pub fn add_sphere(&mut self, pos: Vec<Float>, sphere: Sphere) {
         self.spheres.push((pos, sphere));
+    }
+
+    #[wasm_bindgen]
+    pub fn add_light(&mut self, pos: Vec<Float>, light: Light) {
+        self.lights.push((pos, light));
     }
 }
 
@@ -378,7 +410,7 @@ impl World {
 struct DimensionalWorld<V: Vector> {
     center: V,
     cam_pos: V,
-    light_pos: V,
+    lights: Vec<(V, Light)>,
     spheres: Vec<(V, Sphere)>,
 }
 
@@ -387,7 +419,14 @@ impl<V: Vector> DimensionalWorld<V> {
         Self {
             center: V::new(),
             cam_pos,
-            light_pos: V::pad(&[-12.0, -12.0], 8.0),
+            lights: world
+                .lights
+                .iter()
+                .map(|(position, s)| {
+                    let position = V::pad(&position, 0.0);
+                    (position, s.to_owned())
+                })
+                .collect(),
             spheres: world
                 .spheres
                 .iter()
@@ -465,51 +504,43 @@ fn get_all_intersections<V: Vector>(
     all
 }
 
-fn get_light_color<V: Vector>(shadow_casters: Vec<Intersection<V>>) -> Color {
-    let mut light_color = Color::rgb(1.0, 1.0, 1.0);
-
+fn get_light_color<V: Vector>(
+    mut light_color: Color,
+    shadow_casters: Vec<Intersection<V>>,
+) -> Color {
     for sc in shadow_casters {
-        light_color.apply(&sc.surface.color);
+        light_color.apply(&sc.surface.color.normalize());
         light_color.adjust_brightness(1.0 - sc.surface.color.alpha())
     }
 
     light_color
 }
 
-fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, light_pos: &V) -> Color {
+fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V) -> Color {
     let all = get_all_intersections(world, &cam_pos, &ray);
 
     let mut color = BG_COLOR;
     for hit in all {
-        let hit_to_light = (*light_pos - hit.position).normalize();
-        let angle = hit.normal.dot(&hit_to_light);
-        // The more the brightness of the light is influenced by the angle the softer curves will look
-        let brightness = Float::max(angle * 0.1 + 0.9, 0.0);
         let mut hit_color = hit.surface.color;
 
-        let mut direct_light_color =
-            get_light_color(get_all_intersections(world, &hit.position, &hit_to_light));
+        let mut lights_color = Color::rgba(0.3, 0.3, 0.3, 1.0);
+        for (light_pos, light) in &world.lights {
+            let hit_to_light = (*light_pos - hit.position).normalize();
 
-        direct_light_color.adjust_brightness(brightness);
+            let mut color = get_light_color(
+                light.color,
+                get_all_intersections(world, &hit.position, &hit_to_light),
+            );
 
-        hit_color.apply(&Color::rgba(
-            direct_light_color.red(),
-            direct_light_color.green(),
-            direct_light_color.blue(),
-            0.6,
-        ));
+            let angle = hit.normal.dot(&hit_to_light);
+            // The more the brightness of the light is influenced by the angle the softer curves will look
+            let brightness = Float::max(angle * 0.8 + 0.2, 0.0);
+            color.adjust_brightness(brightness);
 
-        // let ambient_light_color =
-        //     get_light_color(get_all_intersections(world, &hit.position, &hit.normal));
-        //
-        // hit_color.apply(&Color::rgba(
-        //     ambient_light_color.red(),
-        //     ambient_light_color.green(),
-        //     ambient_light_color.blue(),
-        //     0.1,
-        // ));
+            lights_color.add(&color);
+        }
 
-        // color = hit_color;
+        hit_color.apply(&lights_color);
         color.mix(&hit_color);
     }
 
@@ -529,7 +560,7 @@ fn sample<V: Vector>(world: &DimensionalWorld<V>, rel_x: Float, rel_y: Float) ->
 
     let ray = (cam_dir * zoom + pos_on_sensor).normalize();
 
-    trace(world, &world.cam_pos, &ray, &world.light_pos)
+    trace(world, &world.cam_pos, &ray)
 }
 
 fn set_px(
