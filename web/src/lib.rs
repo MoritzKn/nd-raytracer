@@ -1,7 +1,7 @@
 extern crate wasm_bindgen;
 
 mod color;
-mod ndvec;
+mod fixedvector;
 mod tracer;
 mod vector;
 mod world;
@@ -9,7 +9,7 @@ mod world;
 use wasm_bindgen::prelude::*;
 
 use color::{Color, ColorInt};
-use ndvec::NdVec;
+use fixedvector::FixedVector;
 use tracer::{sample, DimensionalWorld};
 use vector::Vector;
 use world::World;
@@ -259,14 +259,14 @@ pub fn update(
     dimension: usize,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
     match dimension {
-        2 => update_n::<NdVec<2>>(data, world, cam_pos, start, end, width, height, min_dim),
-        3 => update_n::<NdVec<3>>(data, world, cam_pos, start, end, width, height, min_dim),
-        4 => update_n::<NdVec<4>>(data, world, cam_pos, start, end, width, height, min_dim),
-        5 => update_n::<NdVec<5>>(data, world, cam_pos, start, end, width, height, min_dim),
-        6 => update_n::<NdVec<6>>(data, world, cam_pos, start, end, width, height, min_dim),
-        7 => update_n::<NdVec<7>>(data, world, cam_pos, start, end, width, height, min_dim),
-        8 => update_n::<NdVec<8>>(data, world, cam_pos, start, end, width, height, min_dim),
-        9 => update_n::<NdVec<9>>(data, world, cam_pos, start, end, width, height, min_dim),
+        2 => update_n::<FixedVector<2>>(data, world, cam_pos, start, end, width, height, min_dim),
+        3 => update_n::<FixedVector<3>>(data, world, cam_pos, start, end, width, height, min_dim),
+        4 => update_n::<FixedVector<4>>(data, world, cam_pos, start, end, width, height, min_dim),
+        5 => update_n::<FixedVector<5>>(data, world, cam_pos, start, end, width, height, min_dim),
+        6 => update_n::<FixedVector<6>>(data, world, cam_pos, start, end, width, height, min_dim),
+        7 => update_n::<FixedVector<7>>(data, world, cam_pos, start, end, width, height, min_dim),
+        8 => update_n::<FixedVector<8>>(data, world, cam_pos, start, end, width, height, min_dim),
+        9 => update_n::<FixedVector<9>>(data, world, cam_pos, start, end, width, height, min_dim),
         _ => data,
     }
 }
