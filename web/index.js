@@ -1,15 +1,17 @@
 const libPromise = import("./pkg");
+
 const canvas = document.getElementById("canvas");
 const wrapper = document.getElementById("wrapper");
 const ctx = canvas.getContext("2d");
 
+const largestStep = 27;
+
+let stop = true;
 let dimension = 3;
-let minCanvasDim;
 let world;
-let imageData;
 let frameId = null;
 
-let scale = 1;
+let scale = 0.5;
 // delta time (ms)
 let dt = 32;
 let avgDt = dt;
@@ -18,6 +20,51 @@ const targetDt = 32;
 let camPos = [-6, 0, -2, 0];
 
 const TAU = Math.PI * 2;
+
+const workerPool = [];
+
+function initWorkerPool() {
+  const count = Math.max(1, navigator.hardwareConcurrency - 1);
+  // const count = 4;
+  for (var i = 0; i < count; i++) {
+    workerPool.push(new Worker("worker.js"));
+  }
+  workerPool.msgId = 0;
+  console.log(`Created ${workerPool.length} workers`);
+}
+
+function broadcast(type, data) {
+  console.log("broadcast", type, data);
+  return Promise.all(workerPool.map(w => send(w, type, data)));
+}
+
+function send(worker, type, data) {
+  workerPool.msgId += 1;
+  const messageId = workerPool.msgId;
+  let transfer = [];
+  if (data && data.data && data.data.buffer) {
+    transfer.push(data.data.buffer);
+  }
+  worker.postMessage({ type, data, id: messageId }, transfer);
+
+  return new Promise((resolve, reject) => {
+    const onMessage = event => {
+      const { type, id, data, error } = event.data;
+
+      if (id === messageId) {
+        worker.removeEventListener("message", onMessage);
+
+        if (error) {
+          reject(error);
+        } else {
+          resolve(data);
+        }
+      }
+    };
+
+    worker.addEventListener("message", onMessage);
+  });
+}
 
 function getRotation(angle, scale) {
   return [Math.cos(angle) * scale, Math.sin(angle) * scale];
@@ -29,14 +76,20 @@ function dtSec(sec) {
   return dt / 1000 / sec;
 }
 
-function draw() {
-  if (dt < targetDt * 0.8 || dt > targetDt * 1.2) {
+async function draw() {
+  if (stop) {
+    return;
+  }
+
+  if (avgDt < targetDt * 0.7 || avgDt > targetDt * 1.3) {
     // how much faster/slower do we need to be to hit the target dt
-    let div = targetDt / dt;
+    let div = targetDt / avgDt;
     // sqrt because update is O(scale^2)
-    scale *= Math.sqrt(div);
-    scale = Math.min(Math.max(scale, 0.1), 2);
-    resize(scale);
+    const newScale = Math.min(Math.max(scale * Math.sqrt(div), 0.1), 2);
+    if (newScale != scale) {
+      scale = newScale;
+      resize();
+    }
   }
 
   let angle1 = Math.atan2(camPos[1], camPos[0]);
@@ -46,21 +99,45 @@ function draw() {
     ...getRotation(angle2 + TAU * dtSec(6), 2)
   ];
 
-  let start = performance.now();
-  const res = lib.update(
-    imageData.data,
-    world,
-    camPos,
-    imageData.width,
-    imageData.height,
-    minCanvasDim,
-    dimension
-  );
+  let timeStart = performance.now();
 
-  imageData = new ImageData(res, imageData.width);
-  ctx.putImageData(imageData, 0, 0);
-  dt = performance.now() - start;
-  avgDt = (avgDt * 30 + dt) / 31;
+  let threads = workerPool.length * 2;
+  let chunkSize =
+    Math.ceil(canvas.height / threads / largestStep) * largestStep;
+  let chunks = [];
+  const imageDataWidth = canvas.width;
+
+  for (var i = 0; i < threads; i++) {
+    const worker = workerPool[i % workerPool.length];
+    let start = chunkSize * i;
+    let end = Math.min(start + chunkSize, canvas.height);
+    let imageData = ctx.getImageData(0, start, imageDataWidth, end);
+
+    chunks.push(
+      send(worker, "update", {
+        data: imageData.data,
+        camPos,
+        start,
+        end,
+        width: canvas.width,
+        height: canvas.height,
+        dimension
+      })
+    );
+  }
+
+  chunks = await Promise.all(chunks);
+  if (stop) {
+    return;
+  }
+
+  chunks.forEach((data, i) => {
+    const imageData = new ImageData(data, imageDataWidth);
+    ctx.putImageData(imageData, 0, chunkSize * i);
+  });
+
+  dt = performance.now() - timeStart;
+  avgDt = (avgDt * 60 + dt) / 61;
   console.log(
     `update dt: ${dt.toFixed(2)}ms, avg: ${avgDt.toFixed(
       2
@@ -71,172 +148,45 @@ function draw() {
 }
 
 function resize() {
-  const step = 27;
+  canvas.width =
+    Math.ceil((wrapper.clientWidth * scale) / largestStep) * largestStep;
+  canvas.height =
+    Math.ceil((wrapper.clientHeight * scale) / largestStep) * largestStep;
 
-  canvas.width = Math.floor(wrapper.clientWidth * scale);
-  canvas.height = Math.floor(wrapper.clientHeight * scale);
-  minCanvasDim = Math.min(canvas.width, canvas.height);
-
-  let bufferWidth = Math.ceil(canvas.width / step) * step;
-  let bufferHeight = Math.ceil(canvas.height / step) * step;
-  imageData = ctx.getImageData(0, 0, bufferWidth, bufferHeight);
-
-  canvas.style.transform = `
-  scale(${1 / scale})
-  translate(
-    ${(bufferWidth - canvas.width) / -2}px,
-    ${(bufferHeight - canvas.height) / -2}px
-    )`;
-  canvas.style.transformOrigin = `left top`;
+  let canvasScale = Math.max(
+    wrapper.clientWidth / canvas.width,
+    wrapper.clientHeight / canvas.height
+  );
+  canvas.style.transform = `scale(${canvasScale + 0.01})`;
+  canvas.style.transformOrigin = `center`;
 
   console.log(
-    `resize: scale: ${scale.toFixed(2)}, buffer: ${bufferWidth} ${bufferHeight}`
+    `resize: scale: ${scale.toFixed(2)}, canvas: ${canvas.width} ${
+      canvas.height
+    }`
   );
 }
 
-function stackSpheres(world, dimension) {
-  const count = 2 ** dimension;
-  const outerR = 1;
-
-  for (let i = 0; i < count; i++) {
-    // this is so dumm but it works
-    const pos = i
-      .toString(2)
-      .padStart(dimension, "0")
-      .split("")
-      .map(Number)
-      .map(n => n * 2 - 1);
-    world.add_sphere(
-      pos,
-      new lib.Sphere(
-        outerR,
-        lib.Color.rgba(i / count, (count - i) / count, 1, 0.8),
-        0.8
-      )
-    );
-  }
-  const innerR = Math.sqrt(dimension) - outerR;
-  world.add_sphere(
-    [],
-    new lib.Sphere(innerR, lib.Color.rgba(1, 0.4, 0.2, 1), 0.8)
-  );
-}
-
-function cube(world, dim, pos, i) {
-  let count = 4;
-  let scale = 2;
-  let radius = 0.4;
-  let outline = true;
-
-  if (dim === 0) {
-    const axies = pos.filter(c => Math.abs(c) === scale / 2).length;
-
-    if (outline && axies < dimension - 1) {
-      return;
-    }
-
-    world.add_sphere(
-      pos,
-      new lib.Sphere(
-        radius,
-        lib.Color.rgba(
-          axies / (dimension - 1),
-          (dimension - axies) / (dimension - 1),
-          (dimension - axies) / (dimension - 1),
-          0.8
-        )
-      )
-    );
-
-    return;
-  }
-
-  for (var i = 0; i < count; i++) {
-    // recursively go through dimensions
-    // component is fitst x, than y, than z, etc
-    const component = (i / (count - 1)) * scale - scale / 2;
-    cube(world, dim - 1, [component, ...pos], i);
-  }
-}
-
-async function init() {
+async function start() {
+  stop = false;
   document.getElementById("dimension").value = dimension;
-  window.lib = await libPromise;
-
-  window.addEventListener("resize", resize);
-  resize();
-
-  world = new lib.World();
-
-  stackSpheres(world, dimension);
-  // cube(world, dimension, [], true, 0);
-
-  world.add_light(
-    [-6.0, -6.0, 12.0, 6.0],
-    new lib.Light(lib.Color.rgba(1, 1, 1, 0.6))
-  );
-
-  // world.add_light(
-  //   [-6.0, 6.0, 6.0, 4.0],
-  //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
-  // );
-  // world.add_light(
-  //   [6.0, 6.0, 6.0, 3.0],
-  //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
-  // );
-
-  // world.add_sphere(
-  //   [3, 0, 0],
-  //   new lib.Sphere(2, lib.Color.rgba(0.9, 0.9, 0.9, 1), 0.9)
-  // );
-
-  // world.add_sphere([-2, 1], new lib.Sphere(0.4, lib.Color.rgba(0, 1, 0, 0.5)));
-  // world.add_sphere(
-  //   [-2, 0],
-  //   new lib.Sphere(0.4, lib.Color.rgba(0, 0.5, 0, 0.9), 0.9)
-  // );
-  // world.add_sphere(
-  //   [-2, -1],
-  //   new lib.Sphere(0.4, lib.Color.rgba(0.5, 1, 0.5, 0.9), 0.1)
-  // );
-
-  // world.add_sphere([], new lib.Sphere(3, lib.Color.rgba(1, 0.5, 0, 0.1)));
-  // world.add_sphere([1.2], new lib.Sphere(2, lib.Color.rgba(0, 1, 0.5, 0.5)));
-  // world.add_sphere([-2], new lib.Sphere(1.5, lib.Color.rgba(0, 0.5, 1, 1)));
-
-  for (var i = -3; i <= 3; i++) {
-    for (var j = -3; j <= 3; j++) {
-      world.add_sphere(
-        [i * 1.2, j * 1.2, -4],
-        new lib.Sphere(0.8, lib.Color.rgba(0.9, 0.9, 0.9, 1))
-      );
-    }
-  }
-
-  world.add_sphere(
-    [0, 4.5],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
-  );
-  world.add_sphere(
-    [4.5, 0],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
-  );
-  world.add_sphere(
-    [0, -4.5],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
-  );
-  world.add_sphere(
-    [-4.5, 0],
-    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
-  );
+  await broadcast("start", { dimension });
 
   frameId = requestAnimationFrame(draw);
 }
 
+initWorkerPool();
+window.addEventListener("resize", resize);
+resize();
+
 document.getElementById("dimension").addEventListener("change", event => {
+  stop = true;
   cancelAnimationFrame(frameId);
-  dimension = Math.max(Math.min(parseInt(event.target.value, 10), 9), 2);
-  init();
+
+  setTimeout(function() {
+    dimension = Math.max(Math.min(parseInt(event.target.value, 10), 9), 2);
+    start().catch(err => console.error(err));
+  }, dt * 2);
 });
 
-init().catch(err => console.error(err));
+start().catch(err => console.error(err));

@@ -492,7 +492,7 @@ fn get_all_intersections<V: Vector>(
     origin: &V,
     ray: &V,
 ) -> Vec<Intersection<V>> {
-    let mut all = vec![];
+    let mut all = Vec::with_capacity(world.spheres.len());
     for (position, sphere) in &world.spheres {
         if let Some(intersection) = test_sphere_intersection(origin, ray, &position, sphere) {
             all.push(intersection)
@@ -573,12 +573,13 @@ fn sample<V: Vector>(world: &DimensionalWorld<V>, rel_x: Float, rel_y: Float) ->
 
 fn set_px(
     data: &mut wasm_bindgen::Clamped<Vec<u8>>,
+    start: isize,
     width: isize,
     x: isize,
     y: isize,
     color: ColorInt,
 ) {
-    let index = ((x + y * width) * 4) as usize;
+    let index = ((x + (y - start) * width) * 4) as usize;
 
     data[index + 0] = color[0];
     data[index + 1] = color[1];
@@ -586,8 +587,14 @@ fn set_px(
     data[index + 3] = 255; // color[3];
 }
 
-fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: isize, x: isize, y: isize) -> ColorInt {
-    let index = ((x + y * width) * 4) as usize;
+fn get_px(
+    data: &wasm_bindgen::Clamped<Vec<u8>>,
+    start: isize,
+    width: isize,
+    x: isize,
+    y: isize,
+) -> ColorInt {
+    let index = ((x + (y - start) * width) * 4) as usize;
 
     [
         data[index + 0],
@@ -599,11 +606,12 @@ fn get_px(data: &wasm_bindgen::Clamped<Vec<u8>>, width: isize, x: isize, y: isiz
 
 fn get_px_checked(
     data: &wasm_bindgen::Clamped<Vec<u8>>,
+    start: isize,
     width: isize,
     x: isize,
     y: isize,
 ) -> Option<ColorInt> {
-    let index = ((x + y * width) * 4) as usize;
+    let index = ((x + (y - start) * width) * 4) as usize;
 
     // Overflows so we only need to check upper limit
     if index + 3 >= data.len() {
@@ -661,6 +669,8 @@ fn test_deviation(
 fn init_sample_grid<V: Vector>(
     data: &mut wasm_bindgen::Clamped<Vec<u8>>,
     world: &DimensionalWorld<V>,
+    start: isize,
+    end: isize,
     width: isize,
     height: isize,
     min_dim: Float,
@@ -670,14 +680,14 @@ fn init_sample_grid<V: Vector>(
     let offset_y = (min_dim - height as Float) / 2.0;
 
     let step_offset = step / 2;
-    for step_y in (step_offset..height).step_by(step as usize) {
+    for step_y in (start + step_offset..end - step_offset).step_by(step as usize) {
         let rel_y = 1.0 - (step_y as Float + offset_y) / min_dim;
 
-        for step_x in (step_offset..width).step_by(step as usize) {
+        for step_x in (step_offset..width - step_offset).step_by(step as usize) {
             let rel_x = (step_x as Float + offset_x) / min_dim;
 
             let color = sample::<V>(&world, rel_x, rel_y).to_int();
-            set_px(data, width, step_x, step_y, color);
+            set_px(data, start, width, step_x, step_y, color);
         }
     }
 }
@@ -685,6 +695,8 @@ fn init_sample_grid<V: Vector>(
 fn fill_sample_grid<V: Vector>(
     data: &mut wasm_bindgen::Clamped<Vec<u8>>,
     world: &DimensionalWorld<V>,
+    start: isize,
+    end: isize,
     width: isize,
     height: isize,
     min_dim: Float,
@@ -699,30 +711,31 @@ fn fill_sample_grid<V: Vector>(
     let step_offset = step / 2;
     let substep_offset = substep / 2;
 
+    assert!((end - start) % step == 0);
     assert!(width % step == 0);
     assert!(height % step == 0);
 
-    for step_y in (step_offset..height).step_by(step as usize) {
+    for step_y in (start + step_offset..end - step_offset).step_by(step as usize) {
         let substep_range_y = ((step_y - step_offset + substep_offset)..(step_y + step_offset + 1))
             .step_by(substep as usize);
 
-        for step_x in (step_offset..width).step_by(step as usize) {
+        for step_x in (step_offset..width - step_offset).step_by(step as usize) {
             let substep_range_x = ((step_x - step_offset + substep_offset)
                 ..(step_x + step_offset + 1))
                 .step_by(substep as usize);
 
-            let center_int = get_px(&data, width, step_x, step_y);
+            let center_int = get_px(&data, start, width, step_x, step_y);
             let center = Color::from_int(&center_int);
-            let top = get_px_checked(&data, width, step_x, step_y - step)
+            let top = get_px_checked(&data, start, width, step_x, step_y - step)
                 .as_ref()
                 .map(Color::from_int);
-            let right = get_px_checked(&data, width, step_x + step, step_y)
+            let right = get_px_checked(&data, start, width, step_x + step, step_y)
                 .as_ref()
                 .map(Color::from_int);
-            let bottom = get_px_checked(&data, width, step_x, step_y + step)
+            let bottom = get_px_checked(&data, start, width, step_x, step_y + step)
                 .as_ref()
                 .map(Color::from_int);
-            let left = get_px_checked(&data, width, step_x - step, step_y)
+            let left = get_px_checked(&data, start, width, step_x - step, step_y)
                 .as_ref()
                 .map(Color::from_int);
 
@@ -745,7 +758,7 @@ fn fill_sample_grid<V: Vector>(
                         center_int
                     };
 
-                    set_px(data, width, substep_x, substep_y, color);
+                    set_px(data, start, width, substep_x, substep_y, color);
                 }
             }
         }
@@ -756,6 +769,8 @@ fn update_n<V: Vector>(
     mut data: wasm_bindgen::Clamped<Vec<u8>>,
     world: &World,
     cam_pos: Vec<Float>,
+    start: isize,
+    end: isize,
     width: isize,
     height: isize,
     min_dim: Float,
@@ -763,13 +778,15 @@ fn update_n<V: Vector>(
     let cam_pos = V::pad(&cam_pos, -8.0);
     let world = DimensionalWorld::from_world(world, cam_pos);
 
-    init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3);
-    fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3, 1, 0.1);
+    init_sample_grid::<V>(&mut data, &world, start, end, width, height, min_dim, 9);
+    fill_sample_grid::<V>(
+        &mut data, &world, start, end, width, height, min_dim, 9, 3, 0.05,
+    );
+    fill_sample_grid::<V>(
+        &mut data, &world, start, end, width, height, min_dim, 3, 1, 0.1,
+    );
 
-    // init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27);
-    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27, 9, 0.05);
-    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 9, 3, 0.05);
-    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3, 1, 0.05);
+    // init_sample_grid::<V>(&mut data, &world, start, end, width, height, min_dim, 1);
 
     data
 }
@@ -779,20 +796,22 @@ pub fn update(
     data: wasm_bindgen::Clamped<Vec<u8>>,
     world: &World,
     cam_pos: Vec<Float>,
+    start: isize,
+    end: isize,
     width: isize,
     height: isize,
     min_dim: Float,
     dimension: usize,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
     match dimension {
-        2 => update_n::<NdVec<2>>(data, world, cam_pos, width, height, min_dim),
-        3 => update_n::<NdVec<3>>(data, world, cam_pos, width, height, min_dim),
-        4 => update_n::<NdVec<4>>(data, world, cam_pos, width, height, min_dim),
-        5 => update_n::<NdVec<5>>(data, world, cam_pos, width, height, min_dim),
-        6 => update_n::<NdVec<6>>(data, world, cam_pos, width, height, min_dim),
-        7 => update_n::<NdVec<7>>(data, world, cam_pos, width, height, min_dim),
-        8 => update_n::<NdVec<8>>(data, world, cam_pos, width, height, min_dim),
-        9 => update_n::<NdVec<9>>(data, world, cam_pos, width, height, min_dim),
+        2 => update_n::<NdVec<2>>(data, world, cam_pos, start, end, width, height, min_dim),
+        3 => update_n::<NdVec<3>>(data, world, cam_pos, start, end, width, height, min_dim),
+        4 => update_n::<NdVec<4>>(data, world, cam_pos, start, end, width, height, min_dim),
+        5 => update_n::<NdVec<5>>(data, world, cam_pos, start, end, width, height, min_dim),
+        6 => update_n::<NdVec<6>>(data, world, cam_pos, start, end, width, height, min_dim),
+        7 => update_n::<NdVec<7>>(data, world, cam_pos, start, end, width, height, min_dim),
+        8 => update_n::<NdVec<8>>(data, world, cam_pos, start, end, width, height, min_dim),
+        9 => update_n::<NdVec<9>>(data, world, cam_pos, start, end, width, height, min_dim),
         _ => data,
     }
 }
