@@ -15,7 +15,7 @@ const plugins = [
   })
 ];
 
-const mode = "development"; // "development";
+const mode = "production"; // "development";
 
 module.exports = [
   {
