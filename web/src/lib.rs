@@ -11,6 +11,7 @@ extern "C" {
     fn log(s: &str);
 }
 
+#[allow(unused)]
 macro_rules! log {
     // Note that this is using the `log` function imported above during
     // `bare_bones`
@@ -284,14 +285,14 @@ impl Color {
         self.array[2] = self.blue() * invert + top.blue() * alpha;
     }
 
-    fn mix(&self, other: &Color) -> Color {
-        Self::rgba(
-            (self.red() + other.red()) / 2.0,
-            (self.green() + other.green()) / 2.0,
-            (self.blue() + other.blue()) / 2.0,
-            (self.alpha() + other.alpha()) / 2.0,
-        )
-    }
+    // fn mix(&self, other: &Color) -> Color {
+    //     Self::rgba(
+    //         (self.red() + other.red()) / 2.0,
+    //         (self.green() + other.green()) / 2.0,
+    //         (self.blue() + other.blue()) / 2.0,
+    //         (self.alpha() + other.alpha()) / 2.0,
+    //     )
+    // }
 
     fn adjust_brightness(&mut self, brightness: Float) {
         self.array[0] = self.red() * brightness;
@@ -592,18 +593,18 @@ fn init_sample_grid<V: Vector>(
     world: &DimensionalWorld<V>,
     width: isize,
     height: isize,
-    min_canvas_dim: Float,
+    min_dim: Float,
     step: isize,
 ) {
-    let offset_x = (min_canvas_dim - width as Float) / 2.0;
-    let offset_y = (min_canvas_dim - height as Float) / 2.0;
+    let offset_x = (min_dim - width as Float) / 2.0;
+    let offset_y = (min_dim - height as Float) / 2.0;
 
     let step_offset = step / 2;
     for step_y in (step_offset..height).step_by(step as usize) {
-        let rel_y = 1.0 - (step_y as Float + offset_y) / min_canvas_dim;
+        let rel_y = 1.0 - (step_y as Float + offset_y) / min_dim;
 
         for step_x in (step_offset..width).step_by(step as usize) {
-            let rel_x = (step_x as Float + offset_x) / min_canvas_dim;
+            let rel_x = (step_x as Float + offset_x) / min_dim;
 
             let color = sample::<V>(&world, rel_x, rel_y).to_int();
             set_px(data, width, step_x, step_y, color);
@@ -616,13 +617,13 @@ fn fill_sample_grid<V: Vector>(
     world: &DimensionalWorld<V>,
     width: isize,
     height: isize,
-    min_canvas_dim: Float,
+    min_dim: Float,
     step: isize,
     substep: isize,
     deviation_threshold: Float,
 ) {
-    let offset_x = (min_canvas_dim - width as Float) / 2.0;
-    let offset_y = (min_canvas_dim - height as Float) / 2.0;
+    let offset_x = (min_dim - width as Float) / 2.0;
+    let offset_y = (min_dim - height as Float) / 2.0;
 
     // NOTE: offset is floored!
     let step_offset = step / 2;
@@ -659,7 +660,7 @@ fn fill_sample_grid<V: Vector>(
             let resample = max_div > deviation_threshold;
 
             for substep_y in substep_range_y.clone() {
-                let rel_y = 1.0 - (substep_y as Float + offset_y) / min_canvas_dim;
+                let rel_y = 1.0 - (substep_y as Float + offset_y) / min_dim;
 
                 for substep_x in substep_range_x.clone() {
                     if substep_x == step_x && substep_y == step_y {
@@ -667,7 +668,7 @@ fn fill_sample_grid<V: Vector>(
                         continue;
                     }
 
-                    let rel_x = (substep_x as Float + offset_x) / min_canvas_dim;
+                    let rel_x = (substep_x as Float + offset_x) / min_dim;
 
                     let color = if resample {
                         sample::<V>(&world, rel_x, rel_y).to_int()
@@ -688,41 +689,41 @@ fn update_n<V: Vector>(
     cam_pos: Vec<Float>,
     width: isize,
     height: isize,
-    min_canvas_dim: Float,
+    min_dim: Float,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
-    let cam_pos = V::pad(&cam_pos, 2.0);
+    let cam_pos = V::pad(&cam_pos, -8.0);
     let world = DimensionalWorld::from_world(world, cam_pos);
 
-    // init_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 1);
-    // fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 27, 1, 0.1);
+    // init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 1);
+    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27, 1, 0.1);
 
-    init_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 27);
-    fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 27, 9, 0.1);
-    fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 9, 3, 0.05);
-    fill_sample_grid::<V>(&mut data, &world, width, height, min_canvas_dim, 3, 1, 0.1);
+    init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 9);
+    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27, 9, 0.05);
+    fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 9, 3, 0.05);
+    fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3, 1, 0.05);
 
     data
 }
 
 #[wasm_bindgen]
 pub fn update(
-    mut data: wasm_bindgen::Clamped<Vec<u8>>,
+    data: wasm_bindgen::Clamped<Vec<u8>>,
     world: &World,
     cam_pos: Vec<Float>,
     width: isize,
     height: isize,
-    min_canvas_dim: Float,
+    min_dim: Float,
     dimension: usize,
 ) -> wasm_bindgen::Clamped<Vec<u8>> {
     match dimension {
-        2 => update_n::<NdVec<2>>(data, world, cam_pos, width, height, min_canvas_dim),
-        3 => update_n::<NdVec<3>>(data, world, cam_pos, width, height, min_canvas_dim),
-        4 => update_n::<NdVec<4>>(data, world, cam_pos, width, height, min_canvas_dim),
-        5 => update_n::<NdVec<5>>(data, world, cam_pos, width, height, min_canvas_dim),
-        6 => update_n::<NdVec<6>>(data, world, cam_pos, width, height, min_canvas_dim),
-        7 => update_n::<NdVec<7>>(data, world, cam_pos, width, height, min_canvas_dim),
-        8 => update_n::<NdVec<8>>(data, world, cam_pos, width, height, min_canvas_dim),
-        9 => update_n::<NdVec<9>>(data, world, cam_pos, width, height, min_canvas_dim),
+        2 => update_n::<NdVec<2>>(data, world, cam_pos, width, height, min_dim),
+        3 => update_n::<NdVec<3>>(data, world, cam_pos, width, height, min_dim),
+        4 => update_n::<NdVec<4>>(data, world, cam_pos, width, height, min_dim),
+        5 => update_n::<NdVec<5>>(data, world, cam_pos, width, height, min_dim),
+        6 => update_n::<NdVec<6>>(data, world, cam_pos, width, height, min_dim),
+        7 => update_n::<NdVec<7>>(data, world, cam_pos, width, height, min_dim),
+        8 => update_n::<NdVec<8>>(data, world, cam_pos, width, height, min_dim),
+        9 => update_n::<NdVec<9>>(data, world, cam_pos, width, height, min_dim),
         _ => data,
     }
 }

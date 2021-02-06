@@ -3,39 +3,47 @@ const canvas = document.getElementById("canvas");
 const wrapper = document.getElementById("wrapper");
 const ctx = canvas.getContext("2d");
 
-let dimension = 4;
+let dimension = 3;
 let minCanvasDim;
 let world;
 let imageData;
 let frameId = null;
 
-let scale = 0.75;
+let scale = 1;
+// delta time (ms)
 let dt = 18;
+const targetDt = 32;
 
-let camPos = [-4, 0];
+let camPos = [-6, 0, -2, 0];
+
+const TAU = Math.PI * 2;
 
 function getRotation(angle, scale) {
   return [Math.cos(angle) * scale, Math.sin(angle) * scale];
 }
 
+// factor for something that should happen after x seconds
+// posX += 10 * dtSec(2) means move 10 units in 2 sec
+function dtSec(sec) {
+  return dt / 1000 / sec;
+}
+
 function draw() {
-  if (dt > 24) {
-    scale = Math.min(scale / (dt / 22), 2);
-    resize(scale);
-  }
-  if (dt < 16) {
-    scale = Math.max(scale / (dt / 18), 0.1);
+  if (dt < targetDt * 0.8 || dt > targetDt * 1.2) {
+    // how much faster/slower do we need to be to hit the target dt
+    let div = targetDt / dt;
+    // sqrt because update is O(scale^2)
+    scale *= Math.sqrt(div);
+    scale = Math.min(Math.max(scale, 0.1), 2);
     resize(scale);
   }
 
-  // const camSpeed = 1 / 1000;
-  // camPos[0] += camSpeed * dt;
-  // if (camPos[0] > camDist * 2) camPos[0] -= camDist * 2;
-  // camPos[1] += camSpeed * dt;
-  // if (camPos[1] > camDist * 2) camPos[1] -= camDist * 2;
-
-  let angle = Math.atan2(camPos[1], camPos[0]) + ((Math.PI / 8) * dt) / 1000;
-  camPos = getRotation(angle, 6);
+  let angle1 = Math.atan2(camPos[1], camPos[0]);
+  let angle2 = Math.atan2(camPos[3], camPos[2]);
+  camPos = [
+    ...getRotation(angle1 + TAU * dtSec(12), 8),
+    ...getRotation(angle2 + TAU * dtSec(6), 2)
+  ];
 
   let start = performance.now();
   const res = lib.update(
@@ -51,7 +59,7 @@ function draw() {
   imageData = new ImageData(res, imageData.width);
   ctx.putImageData(imageData, 0, 0);
   dt = performance.now() - start;
-  console.log(`update dt: ${dt.toFixed(0)}ms, scale: ${scale.toFixed(2)}`);
+  console.log(`update dt: ${dt.toFixed(2)}ms, scale: ${scale.toFixed(2)}`);
 
   frameId = requestAnimationFrame(draw);
 }
@@ -94,7 +102,10 @@ function stackSpheres(world, dimension) {
       .map(n => n * 2 - 1);
     world.add_sphere(
       pos,
-      new lib.Sphere(outerR, lib.Color.rgba(0.15, 0.35, 1, 0.78))
+      new lib.Sphere(
+        outerR,
+        lib.Color.rgba(i / count, (count - i) / count, 1, 0.78)
+      )
     );
   }
   const innerR = Math.sqrt(dimension) - outerR;
@@ -104,7 +115,45 @@ function stackSpheres(world, dimension) {
   );
 }
 
+function cube(world, dim, pos, i) {
+  let count = 8;
+  let scale = 2;
+  let radius = 0.2;
+  let outline = true;
+
+  if (dim === 0) {
+    const axies = pos.filter(c => Math.abs(c) === scale / 2).length;
+
+    if (outline && axies < dimension - 1) {
+      return;
+    }
+
+    world.add_sphere(
+      pos,
+      new lib.Sphere(
+        radius,
+        lib.Color.rgba(
+          axies / (dimension - 1),
+          (dimension - axies) / (dimension - 1),
+          (dimension - axies) / (dimension - 1),
+          0.9
+        )
+      )
+    );
+
+    return;
+  }
+
+  for (var i = 0; i < count; i++) {
+    // recursively go through dimensions
+    // component is fitst x, than y, than z, etc
+    const component = (i / (count - 1)) * scale - scale / 2;
+    cube(world, dim - 1, [component, ...pos], i);
+  }
+}
+
 async function init() {
+  document.getElementById("dimension").value = dimension;
   window.lib = await libPromise;
 
   window.addEventListener("resize", resize);
@@ -113,6 +162,9 @@ async function init() {
   world = new lib.World();
 
   stackSpheres(world, dimension);
+  // cube(world, dimension, [], true, 0);
+
+  world.add_sphere([], new lib.Sphere(16, lib.Color.rgba(0, 0.8, 0.1, 0.5)));
 
   frameId = requestAnimationFrame(draw);
 }
@@ -120,7 +172,6 @@ async function init() {
 document.getElementById("dimension").addEventListener("change", event => {
   cancelAnimationFrame(frameId);
   dimension = Math.max(Math.min(parseInt(event.target.value, 10), 9), 2);
-  event.target.value = dimension;
   init();
 });
 
