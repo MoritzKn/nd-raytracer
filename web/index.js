@@ -201,28 +201,28 @@ async function init() {
   for (var i = -3; i <= 3; i++) {
     for (var j = -3; j <= 3; j++) {
       world.add_sphere(
-        [i, j, -3],
-        new lib.Sphere(0.6, lib.Color.rgba(0.9, 0.9, 0.9, 1), 0.8)
+        [i * 1.2, j * 1.2, -4],
+        new lib.Sphere(0.8, lib.Color.rgba(0.9, 0.9, 0.9, 1))
       );
     }
   }
 
-  // world.add_sphere(
-  //   [0, 4.5],
-  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  // );
-  // world.add_sphere(
-  //   [4.5, 0],
-  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  // );
-  // world.add_sphere(
-  //   [0, -4.5],
-  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  // );
-  // world.add_sphere(
-  //   [-4.5, 0],
-  //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  // );
+  world.add_sphere(
+    [0, 4.5],
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+  );
+  world.add_sphere(
+    [4.5, 0],
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+  );
+  world.add_sphere(
+    [0, -4.5],
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+  );
+  world.add_sphere(
+    [-4.5, 0],
+    new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1), 0.4)
+  );
 
   frameId = requestAnimationFrame(draw);
 }
