@@ -319,9 +319,9 @@ impl Color {
         self.array[2] = self.blue() * brightness;
     }
 
-    // fn set_alpha(&mut self, alpha: Float) {
-    //     self.array[3] = alpha;
-    // }
+    fn set_alpha(&mut self, alpha: Float) {
+        self.array[3] = alpha;
+    }
 
     fn div(&self, other: &Self) -> Float {
         if self == other {
@@ -344,6 +344,7 @@ static BG_COLOR: Color = Color {
 #[derive(Debug, Clone)]
 pub struct Surface {
     color: Color,
+    reflection: Float,
 }
 
 #[wasm_bindgen]
@@ -370,10 +371,13 @@ pub struct Sphere {
 #[wasm_bindgen]
 impl Sphere {
     #[wasm_bindgen(constructor)]
-    pub fn new(radius: Float, color: Color) -> Self {
+    pub fn new(radius: Float, color: Color, reflection: Option<Float>) -> Self {
         Self {
             radius,
-            surface: Surface { color },
+            surface: Surface {
+                color,
+                reflection: reflection.unwrap_or(0.0),
+            },
         }
     }
 }
@@ -516,7 +520,7 @@ fn get_light_color<V: Vector>(
     light_color
 }
 
-fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V) -> Color {
+fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, reflection: usize) -> Color {
     let all = get_all_intersections(world, &cam_pos, &ray);
 
     let mut color = BG_COLOR;
@@ -541,6 +545,14 @@ fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V) -> Color 
         }
 
         hit_color.apply(&lights_color);
+
+        if reflection > 0 && hit.surface.reflection > 0.0 {
+            let ray_reflection = *ray - (hit.normal * 2.0 * ray.dot(&hit.normal));
+            let mut color = trace(world, &hit.position, &ray_reflection, reflection - 1);
+            color.set_alpha(hit.surface.reflection);
+            hit_color.mix(&color);
+        }
+
         color.mix(&hit_color);
     }
 
@@ -560,7 +572,7 @@ fn sample<V: Vector>(world: &DimensionalWorld<V>, rel_x: Float, rel_y: Float) ->
 
     let ray = (cam_dir * zoom + pos_on_sensor).normalize();
 
-    trace(world, &world.cam_pos, &ray)
+    trace(world, &world.cam_pos, &ray, 1)
 }
 
 fn set_px(
@@ -744,9 +756,9 @@ fn update_n<V: Vector>(
     // init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 1);
     // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27, 1, 0.1);
 
-    init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 9);
+    init_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3);
     // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 27, 9, 0.05);
-    fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 9, 3, 0.05);
+    // fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 9, 3, 0.05);
     fill_sample_grid::<V>(&mut data, &world, width, height, min_dim, 3, 1, 0.05);
 
     data

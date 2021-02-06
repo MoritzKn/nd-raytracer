@@ -104,12 +104,16 @@ function stackSpheres(world, dimension) {
       pos,
       new lib.Sphere(
         outerR,
-        lib.Color.rgba(i / count, (count - i) / count, 1, 0.8)
+        lib.Color.rgba(i / count, (count - i) / count, 1, 0.8),
+        0.8
       )
     );
   }
   const innerR = Math.sqrt(dimension) - outerR;
-  world.add_sphere([], new lib.Sphere(innerR, lib.Color.rgba(1, 0.4, 0.2, 1)));
+  world.add_sphere(
+    [],
+    new lib.Sphere(innerR, lib.Color.rgba(1, 0.4, 0.2, 1), 0.8)
+  );
 }
 
 function cube(world, dim, pos, i) {
@@ -159,37 +163,50 @@ async function init() {
   world = new lib.World();
 
   stackSpheres(world, dimension);
-  cube(world, dimension, [], true, 0);
+  // cube(world, dimension, [], true, 0);
 
   world.add_light(
-    [-12.0, -12.0, 6.0, 6.0],
+    [-6.0, -6.0, 12.0, 6.0],
     new lib.Light(lib.Color.rgba(1, 1, 1, 0.6))
   );
 
-  world.add_light(
-    [-6.0, 6.0, 6.0, 4.0],
-    new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
-  );
-  world.add_light(
-    [6.0, 6.0, 6.0, 3.0],
-    new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
-  );
+  // world.add_light(
+  //   [-6.0, 6.0, 6.0, 4.0],
+  //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
+  // );
+  // world.add_light(
+  //   [6.0, 6.0, 6.0, 3.0],
+  //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
+  // );
 
-  // world.add_sphere([3], new lib.Sphere(2.5, lib.Color.rgba(0.9, 0.9, 0.9, 1)));
-  // world.add_sphere([-1, 1], new lib.Sphere(0.4, lib.Color.rgba(0, 1, 0, 0.5)));
   // world.add_sphere(
-  //   [-1, 0],
-  //   new lib.Sphere(0.4, lib.Color.rgba(0, 0.5, 0, 0.5))
+  //   [3, 0, 0],
+  //   new lib.Sphere(2, lib.Color.rgba(0.9, 0.9, 0.9, 1), 0.9)
+  // );
+
+  // world.add_sphere([-2, 1], new lib.Sphere(0.4, lib.Color.rgba(0, 1, 0, 0.5)));
+  // world.add_sphere(
+  //   [-2, 0],
+  //   new lib.Sphere(0.4, lib.Color.rgba(0, 0.5, 0, 0.9), 0.9)
   // );
   // world.add_sphere(
-  //   [-1, -1],
-  //   new lib.Sphere(0.4, lib.Color.rgba(0.5, 1, 0.5, 0.5))
+  //   [-2, -1],
+  //   new lib.Sphere(0.4, lib.Color.rgba(0.5, 1, 0.5, 0.9), 0.1)
   // );
 
   // world.add_sphere([], new lib.Sphere(3, lib.Color.rgba(1, 0.5, 0, 0.1)));
   // world.add_sphere([1.2], new lib.Sphere(2, lib.Color.rgba(0, 1, 0.5, 0.5)));
   // world.add_sphere([-2], new lib.Sphere(1.5, lib.Color.rgba(0, 0.5, 1, 1)));
-  //
+
+  for (var i = -3; i <= 3; i++) {
+    for (var j = -3; j <= 3; j++) {
+      world.add_sphere(
+        [i, j, -3],
+        new lib.Sphere(0.6, lib.Color.rgba(0.9, 0.9, 0.9, 1), 0.8)
+      );
+    }
+  }
+
   // world.add_sphere(
   //   [0, 4.5],
   //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
@@ -205,11 +222,6 @@ async function init() {
   // world.add_sphere(
   //   [-4.5, 0],
   //   new lib.Sphere(0.5, lib.Color.rgba(0.9, 0.6, 0.1, 1))
-  // );
-
-  // world.add_sphere(
-  //   [-12, -12, 4, 4],
-  //   new lib.Sphere(0.3, lib.Color.rgba(0.9, 0.8, 0.3, 0.3))
   // );
 
   frameId = requestAnimationFrame(draw);
