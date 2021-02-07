@@ -3,8 +3,7 @@ export class WorkerPool {
     let count = 6;
 
     if (navigator.hardwareConcurrency) {
-      // if we leave some corse for the OS and the browser, we get more time in our workers
-      count = Math.max(navigator.hardwareConcurrency - 2, 1);
+      count = navigator.hardwareConcurrency;
     }
 
     this.pool = [];
