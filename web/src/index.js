@@ -95,9 +95,9 @@ class RenderController {
     let angle2 = Math.atan2(this.camPos[3], this.camPos[2]);
     let angle3 = Math.atan2(this.camPos[5], this.camPos[4]);
     this.camPos = [
-      ...getRotation(angle1 + TAU * this.dt.dtSec(12), 8),
-      ...getRotation(angle2 + TAU * this.dt.dtSec(6), 2),
-      ...getRotation(angle3 + TAU * this.dt.dtSec(5), 6)
+      ...getRotation(angle1 + TAU * this.dt.dtSec(14), 8),
+      ...getRotation(angle2 + TAU * this.dt.dtSec(8), 2),
+      ...getRotation(angle3 + TAU * this.dt.dtSec(6), 6)
     ];
 
     /* **** Compute Image **** */
