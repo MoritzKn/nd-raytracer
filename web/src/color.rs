@@ -27,12 +27,15 @@ impl Color {
     pub fn red(&self) -> Float {
         self.array[0]
     }
+
     pub fn green(&self) -> Float {
         self.array[1]
     }
+
     pub fn blue(&self) -> Float {
         self.array[2]
     }
+
     pub fn alpha(&self) -> Float {
         self.array[3]
     }
@@ -88,7 +91,7 @@ impl Color {
         self.array[2] = self.blue() * invert + top.blue() * alpha;
     }
 
-    pub fn add(&mut self, top: &Color) {
+    pub fn combine(&mut self, top: &Color) {
         self.array[0] = self.red() + top.red() * top.alpha();
         self.array[1] = self.green() + top.green() * top.alpha();
         self.array[2] = self.blue() + top.blue() * top.alpha();
@@ -104,7 +107,7 @@ impl Color {
         self.array[3] = alpha;
     }
 
-    pub fn div(&self, other: &Color) -> Float {
+    pub fn difference(&self, other: &Color) -> Float {
         let rd = self.red() - other.red();
         let gd = self.green() - other.green();
         let bd = self.blue() - other.blue();
@@ -112,3 +115,97 @@ impl Color {
         Float::sqrt(rd * rd + gd * gd + bd * bd)
     }
 }
+
+// impl Vector for Color {
+//     fn new() -> Self {
+//         Self::rgb(0.0, 0.0, 0.0)
+//     }
+//
+//     fn from_iter(iter: impl Iterator<Item = Float>) -> Self {
+//         let mut array = [0.0; 4];
+//
+//         for (comp, value) in array.iter_mut().zip(iter) {
+//             *comp = value;
+//         }
+//
+//         Self { array }
+//     }
+//
+//     fn pad(base: &[Float], default: Float) -> Self {
+//         let mut array = [default; 4];
+//
+//         for (comp, value) in array.iter_mut().zip(base.iter()) {
+//             *comp = *value;
+//         }
+//
+//         Self { array }
+//     }
+//
+//     fn components(&self) -> &[Float] {
+//         &self.array
+//     }
+// }
+//
+// impl std::ops::Add<Color> for Color {
+//     type Output = Color;
+//
+//     fn add(self, other: Color) -> Color {
+//         Vector::add(&self, &other)
+//     }
+// }
+//
+// impl std::ops::Sub<Color> for Color {
+//     type Output = Color;
+//
+//     fn sub(self, other: Color) -> Color {
+//         Vector::sub(&self, &other)
+//     }
+// }
+//
+// impl std::ops::Mul<Color> for Color {
+//     type Output = Color;
+//
+//     fn mul(self, other: Color) -> Color {
+//         Vector::mul(&self, &other)
+//     }
+// }
+//
+// impl std::ops::Div<Color> for Color {
+//     type Output = Color;
+//
+//     fn div(self, other: Color) -> Color {
+//         Vector::div(&self, &other)
+//     }
+// }
+//
+// impl std::ops::Add<Float> for Color {
+//     type Output = Color;
+//
+//     fn add(self, other: Float) -> Color {
+//         Vector::add_scalar(&self, other)
+//     }
+// }
+//
+// impl std::ops::Sub<Float> for Color {
+//     type Output = Color;
+//
+//     fn sub(self, other: Float) -> Color {
+//         Vector::sub_scalar(&self, other)
+//     }
+// }
+//
+// impl std::ops::Mul<Float> for Color {
+//     type Output = Color;
+//
+//     fn mul(self, other: Float) -> Color {
+//         Vector::mul_scalar(&self, other)
+//     }
+// }
+//
+// impl std::ops::Div<Float> for Color {
+//     type Output = Color;
+//
+//     fn div(self, other: Float) -> Color {
+//         Vector::div_scalar(&self, other)
+//     }
+// }

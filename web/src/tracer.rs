@@ -138,7 +138,7 @@ fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, reflectio
             let brightness = Float::max(angle * 0.8 + 0.2, 0.0);
             color.adjust_brightness(brightness);
 
-            lights_color.add(&color);
+            lights_color.combine(&color);
         }
 
         hit_color.apply(&lights_color);

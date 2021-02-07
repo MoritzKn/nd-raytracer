@@ -95,22 +95,22 @@ fn test_deviation(
     threshold: Float,
 ) -> bool {
     if let Some(top) = top {
-        if center != top && center.div(&top) > threshold {
+        if center != top && center.difference(&top) > threshold {
             return true;
         };
     }
     if let Some(right) = right {
-        if center != right && center.div(&right) > threshold {
+        if center != right && center.difference(&right) > threshold {
             return true;
         }
     }
     if let Some(bottom) = bottom {
-        if center != bottom && center.div(&bottom) > threshold {
+        if center != bottom && center.difference(&bottom) > threshold {
             return true;
         }
     }
     if let Some(left) = left {
-        if center != left && center.div(&left) > threshold {
+        if center != left && center.difference(&left) > threshold {
             return true;
         }
     }
