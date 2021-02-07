@@ -30,6 +30,7 @@ module.exports = [
         template: "./src/index.html"
       })
     ],
+    devServer: { compress: true },
     mode
   },
   {
@@ -41,6 +42,7 @@ module.exports = [
       globalObject: "this"
     },
     plugins,
+    devServer: { compress: true },
     mode
   }
 ];
