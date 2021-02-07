@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <title>N-Dimensional Raytracing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <meta
+      name="description"
+      content="A software renderer for raytracing n-dimensional spheres using WebAssembly and Rust"
+    />
+
+    <style>
+      * {
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      body {
+        margin: 0;
+        font-family: monospace;
+        font-size: 15px;
+      }
+
+      #wrapper {
+        width: 100vw;
+        height: 100vh;
+        margin: 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="wrapper">
+      <canvas id="canvas"></canvas>
+    </div>
+    <div class="controls">
+      Dimensions:
+      <input
+        type="number"
+        min="2"
+        max="9"
+        id="dimension"
+        onfocus="javascript:this.select()"
+        value="4"
+      />
+    </div>
+  <script type="text/javascript" src="index.js"></script></body>
+</html>

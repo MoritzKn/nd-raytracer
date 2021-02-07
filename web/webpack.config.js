@@ -8,13 +8,6 @@ const output = {
   filename: "[name].js"
 };
 
-const plugins = [
-  new WasmPackPlugin({
-    crateDirectory: path.resolve(__dirname, "."),
-    forceMode: "production"
-  })
-];
-
 const mode = "production"; // "development";
 
 module.exports = [
@@ -25,7 +18,6 @@ module.exports = [
       filename: "index.js"
     },
     plugins: [
-      ...plugins,
       new HtmlWebpackPlugin({
         template: "./src/index.html"
       })
@@ -41,7 +33,12 @@ module.exports = [
       filename: "worker.js",
       globalObject: "this"
     },
-    plugins,
+    plugins: [
+      new WasmPackPlugin({
+        crateDirectory: path.resolve(__dirname, "."),
+        forceMode: "production"
+      })
+    ],
     devServer: { compress: true },
     mode
   }
