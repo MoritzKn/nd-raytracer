@@ -31,7 +31,7 @@ class RenderController {
     this.workerPool = new WorkerPool("worker.js");
     this.dt = new DeltaTime();
 
-    this.camPos = [-6, 0, -2, 0];
+    this.camPos = [-6, 0, -2, 0, 1, 1];
     this.dimension = 4;
 
     // Scale the canvas to hit the frame rate (targetDt)
@@ -93,9 +93,11 @@ class RenderController {
 
     let angle1 = Math.atan2(this.camPos[1], this.camPos[0]);
     let angle2 = Math.atan2(this.camPos[3], this.camPos[2]);
+    let angle3 = Math.atan2(this.camPos[5], this.camPos[4]);
     this.camPos = [
       ...getRotation(angle1 + TAU * this.dt.dtSec(12), 8),
-      ...getRotation(angle2 + TAU * this.dt.dtSec(6), 2)
+      ...getRotation(angle2 + TAU * this.dt.dtSec(6), 2),
+      ...getRotation(angle3 + TAU * this.dt.dtSec(5), 6)
     ];
 
     /* **** Compute Image **** */

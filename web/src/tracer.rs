@@ -169,5 +169,6 @@ pub fn sample<V: Vector>(world: &DimensionalWorld<V>, rel_x: Float, rel_y: Float
 
     let ray = (cam_dir * zoom + pos_on_sensor).normalize();
 
-    trace(world, &world.cam_pos, &ray, 1)
+    let reflection_bounces = 2;
+    trace(world, &world.cam_pos, &ray, reflection_bounces)
 }
