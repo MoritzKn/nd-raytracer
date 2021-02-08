@@ -16,7 +16,7 @@ export class DeltaTime {
   end() {
     this.dt = performance.now() - this.frameStart;
     if (this.avgDt !== null) {
-      this.avgDt = (this.avgDt * 30 + this.dt) / 31;
+      this.avgDt = (this.avgDt * 60 + this.dt) / 61;
     } else if (this.lastReset > 0) {
       // HACK: Don't count the first frame after reset
       this.avgDt = this.dt;
@@ -35,10 +35,10 @@ export class DeltaTime {
 
   onTarget() {
     let maxDiff;
-    if (this.lastReset < 30) {
-      maxDiff = 0.5;
+    if (this.lastReset < 60) {
+      maxDiff = 0.6;
     } else {
-      maxDiff = 0.2;
+      maxDiff = 0.3;
     }
     const diff = Math.abs(1 - this.differenceTarget());
     return diff < maxDiff;

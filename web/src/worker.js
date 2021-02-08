@@ -2,6 +2,15 @@ const libPromise = import("../pkg");
 let lib;
 let world;
 
+function hexColor(hex, alpha = 1) {
+  return lib.Color.rgba(
+    parseInt(hex.substr(1, 2), 16) / 255,
+    parseInt(hex.substr(3, 2), 16) / 255,
+    parseInt(hex.substr(5, 2), 16) / 255,
+    1
+  );
+}
+
 function packSpheres2(world) {
   let colorN = 0;
   const r = 1;
@@ -84,20 +93,25 @@ function stackSpheres(world, dimension) {
       .split("")
       .map(Number)
       .map(n => n * 2 - 1);
-    world.add_sphere(
-      pos,
-      new lib.Sphere(
-        outerR,
-        lib.Color.rgba(i / count, (count - i) / count, 1, 0.8),
-        0.6
-      )
-    );
+
+    const r = dimension > 3 ? (pos[3] + 1) / 2 : 0;
+    const b = 0;
+
+    let color;
+    // color = hexColor("#058c42", 1);
+    // color = hexColor("#ffec5c", 1);
+    // color = hexColor("#d53f47", 1);
+
+    if (pos[dimension - 1] === -1) {
+      color = hexColor("#034df1", 1);
+    } else {
+      color = hexColor("#30e42d", 1);
+    }
+
+    world.add_sphere(pos, new lib.Sphere(outerR, color, 0.4));
   }
   const innerR = Math.sqrt(dimension) - outerR;
-  world.add_sphere(
-    [],
-    new lib.Sphere(innerR, lib.Color.rgba(1, 0.4, 0.2, 1), 0.6)
-  );
+  world.add_sphere([], new lib.Sphere(innerR, hexColor("#d200f9"), 0.4));
 }
 
 function cube(world, dimension, pos, orgDimension = dimension) {
@@ -121,7 +135,7 @@ function cube(world, dimension, pos, orgDimension = dimension) {
           axies / (orgDimension - 2),
           (orgDimension - axies) / (orgDimension - 1),
           (orgDimension - axies) / (orgDimension - 1),
-          0.8
+          1
         )
       )
     );
@@ -134,6 +148,117 @@ function cube(world, dimension, pos, orgDimension = dimension) {
     // component is fitst x, than y, than z, etc
     const component = (i / (count - 1)) * scale - scale / 2;
     cube(world, dimension - 1, [component, ...pos], orgDimension);
+  }
+}
+
+function colorCube(world, dimension) {
+  const count = 4;
+  const scale = 2;
+  const radius = scale / (count - 1) / 2;
+  const tightPacking = false;
+
+  for (var r = 0; r < (dimension >= 1 ? count : 1); r++) {
+    for (var g = 0; g < (dimension >= 2 ? count : 1); g++) {
+      for (var b = 0; b < (dimension >= 3 ? count : 1); b++) {
+        for (var a = 0; a < (dimension >= 4 ? count : 1); a++) {
+          world.add_sphere(
+            [
+              (r / (count - 1) - 0.5) * scale,
+              (g / (count - 1) - 0.5) * scale,
+              (b / (count - 1) - 0.5) * scale,
+              (a / (count - 1) - 0.5) * scale
+            ],
+            new lib.Sphere(
+              radius,
+              lib.Color.rgba(
+                1 - r / count,
+                1 - g / count,
+                1 - b / count,
+                1 - a / count
+              )
+            )
+          );
+          if (
+            tightPacking &&
+            dimension >= 4 &&
+            r < count - 1 &&
+            g < count - 1 &&
+            b < count - 1 &&
+            a < count - 1
+          ) {
+            world.add_sphere(
+              [
+                ((r + 0.5) / (count - 1) - 0.5) * scale,
+                ((g + 0.5) / (count - 1) - 0.5) * scale,
+                ((b + 0.5) / (count - 1) - 0.5) * scale,
+                ((a + 0.5) / (count - 1) - 0.5) * scale
+              ],
+              new lib.Sphere(
+                radius,
+                lib.Color.rgba(
+                  1 - (r + 0.5) / count,
+                  1 - (g + 0.5) / count,
+                  1 - (b + 0.5) / count,
+                  1 - (a + 0.5) / count
+                )
+              )
+            );
+          }
+        }
+      }
+    }
+  }
+}
+
+function box(world, dimension, pos, orgDimension = dimension) {
+  let count = 6;
+  let scale = 22;
+  let radius = 2;
+
+  if (dimension === 0) {
+    const axies = pos.filter(c => Math.abs(c) === scale / 2).length;
+
+    // Only wireframe
+    if (axies < 2) {
+      return;
+    }
+
+    // Only one half
+    // if (pos.some(n => n === scale / 2)) {
+    //   return;
+    // }
+
+    world.add_sphere(
+      pos,
+      new lib.Sphere(
+        radius,
+        lib.Color.rgba(
+          axies / (orgDimension - 2),
+          (orgDimension - axies) / (orgDimension - 1),
+          (orgDimension - axies) / (orgDimension - 1),
+          1
+        ),
+        0.7
+      )
+      // new lib.Sphere(
+      //   radius,
+      //   lib.Color.rgba(
+      //     axies / (orgDimension - 2),
+      //     (orgDimension - axies) / (orgDimension - 1),
+      //     (orgDimension - axies) / (orgDimension - 1),
+      //     0.8
+      //   )
+      // )
+    );
+
+    return;
+  }
+
+  for (var i = 0; i < count; i++) {
+    // recursively go through dimensions
+    // component is fitst x, than y, than z, etc
+    const component = (i / (count - 1)) * scale - scale / 2;
+    box(world, dimension - 1, [component, ...pos], orgDimension);
   }
 }
 
@@ -156,30 +281,32 @@ async function start({ dimension }) {
 
   world = new lib.World();
 
-  // stackSpheres(world, dimension);
+  stackSpheres(world, dimension);
+  // colorCube(world, dimension);
   // cube(world, dimension, [], dimension);
   // packSpheres2(world);
   // packSpheres3(world);
-  packSpheres4(world);
+  // packSpheres4(world);
 
   world.add_light(
     [-6.0, -6.0, 12.0, 6.0],
     new lib.Light(lib.Color.rgba(1, 1, 1, 0.6))
   );
 
+  // NOTE: Multiple lgihts is heavyyy
   // world.add_light(
   //   [-6.0, 6.0, 6.0, 4.0],
   //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
   // );
-
+  //
   // world.add_light(
   //   [6.0, 6.0, 6.0, 3.0],
   //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
   // );
 
   if (dimension > 2) {
-    for (var i = -1.5; i <= 1.5; i++) {
-      for (var j = -1.5; j <= 1.5; j++) {
+    for (var i = -2; i <= 2; i++) {
+      for (var j = -2; j <= 2; j++) {
         world.add_sphere(
           [i * 1.2, j * 1.2, -3],
           new lib.Sphere(0.6, lib.Color.rgba(0.9, 0.9, 0.9, 1), 0.7)
@@ -187,6 +314,8 @@ async function start({ dimension }) {
       }
     }
   }
+
+  // box(world, dimension, [], dimension);
 
   // world.add_sphere(
   //   [0, 3.5, 0],

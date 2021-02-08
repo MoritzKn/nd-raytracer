@@ -1,6 +1,6 @@
 export class WorkerPool {
   constructor(workerPath) {
-    let count = 6;
+    let count = 8;
 
     if (navigator.hardwareConcurrency) {
       count = navigator.hardwareConcurrency;

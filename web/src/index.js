@@ -11,6 +11,31 @@ function getRotation(angle, scale) {
   return [Math.cos(angle) * scale, Math.sin(angle) * scale];
 }
 
+const bounces = [];
+
+function getBounce(id, current, range, speed, offset = 0) {
+  current -= offset;
+
+  const dir = bounces[id] || (Math.random() < 0.5 ? 1 : -1);
+  current += dir * range * speed;
+
+  const upperLimit = range * 0.5;
+  if (current > upperLimit) {
+    current = upperLimit - (current - upperLimit);
+    bounces[id] = -dir;
+  }
+
+  const lowerLimit = range * -0.5;
+  if (current < lowerLimit) {
+    current = lowerLimit - (current - lowerLimit);
+    bounces[id] = -dir;
+  }
+
+  current += offset;
+
+  return current;
+}
+
 function sleep(ms) {
   return new Promise(resolve => {
     setTimeout(resolve, ms);
@@ -31,7 +56,7 @@ class RenderController {
     this.workerPool = new WorkerPool("worker.js");
     this.dt = new DeltaTime();
 
-    this.camPos = [-6, 0, -2, 0, 1, 1];
+    this.camPos = [8, 8, 6, 8, -3, -2, -1, 0, 1, 2, 3, 4];
     this.dimension = 4;
 
     // Scale the canvas to hit the frame rate (targetDt)
@@ -91,13 +116,16 @@ class RenderController {
 
     /* **** Update Scene **** */
 
-    let angle1 = Math.atan2(this.camPos[1], this.camPos[0]);
-    let angle2 = Math.atan2(this.camPos[3], this.camPos[2]);
-    let angle3 = Math.atan2(this.camPos[5], this.camPos[4]);
+    let angle = Math.atan2(this.camPos[1], this.camPos[0]);
     this.camPos = [
-      ...getRotation(angle1 + TAU * this.dt.dtSec(14), 8),
-      ...getRotation(angle2 + TAU * this.dt.dtSec(8), 2),
-      ...getRotation(angle3 + TAU * this.dt.dtSec(6), 6)
+      ...getRotation(angle + TAU * this.dt.dtSec(18), 8),
+      getBounce(0, this.camPos[2], 8, this.dt.dtSec(6)),
+      getBounce(1, this.camPos[3], 8, this.dt.dtSec(9)),
+      getBounce(2, this.camPos[4], 8, this.dt.dtSec(6.5)),
+      getBounce(3, this.camPos[5], 8, this.dt.dtSec(5.5)),
+      getBounce(4, this.camPos[6], 8, this.dt.dtSec(5.25)),
+      getBounce(5, this.camPos[7], 8, this.dt.dtSec(5)),
+      getBounce(6, this.camPos[8], 8, this.dt.dtSec(4.75))
     ];
 
     /* **** Compute Image **** */
@@ -129,6 +157,8 @@ class RenderController {
 
     /* **** Draw to Canvas **** */
 
+    // TODO: We know our frame rate, waiting for RAF slows us down
+    // On the other hand, otherwise this runs without focus :/
     await nextFrame();
 
     chunks.forEach((data, i) => {

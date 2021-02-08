@@ -117,11 +117,24 @@ fn get_light_color<V: Vector>(
     light_color
 }
 
-fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, reflection: usize) -> Color {
+fn trace<V: Vector>(
+    world: &DimensionalWorld<V>,
+    cam_pos: &V,
+    ray: &V,
+    reflection_bounces: usize,
+) -> Color {
     let all = get_all_intersections(world, &cam_pos, &ray);
 
     let mut color = BG_COLOR;
-    for hit in all {
+    for (index, hit) in all.iter().enumerate() {
+        if index != all.len() - 1 {
+            let next_alpha = all[index + 1].surface.color.alpha();
+            if next_alpha == 1.0 {
+                // Not show anyways
+                continue;
+            }
+        }
+
         let mut hit_color = hit.surface.color;
 
         let mut lights_color = Color::rgba(0.3, 0.3, 0.3, 1.0);
@@ -143,9 +156,14 @@ fn trace<V: Vector>(world: &DimensionalWorld<V>, cam_pos: &V, ray: &V, reflectio
 
         hit_color.apply(&lights_color);
 
-        if reflection > 0 && hit.surface.reflection > 0.0 {
+        if reflection_bounces > 0 && hit.surface.reflection > 0.0 {
             let ray_reflection = *ray - (hit.normal * 2.0 * ray.dot(&hit.normal));
-            let mut color = trace(world, &hit.position, &ray_reflection, reflection - 1);
+            let mut color = trace(
+                world,
+                &hit.position,
+                &ray_reflection,
+                reflection_bounces - 1,
+            );
             color.set_alpha(hit.surface.reflection);
             hit_color.mix(&color);
         }
