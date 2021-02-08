@@ -2,7 +2,7 @@
 
 A raytracing rendering engine that supports rendering hyper-spheres (and later other objects?) in higher dimensions. Currently available are the dimensions 2 to 9 but higher dimensions would be theoretically possible. It just gets very computationally expensive.
 
-All spheres are projects into the 2d plane that the camera screen is. So pretty much what we are used to from 3D space. You can imagine the process of projecting 4D space onto a 2D screen like taking a 1D "line scan" of 3D space.
+All spheres are projects into the 2D plane that the camera screen is. So pretty much what we are used to from 3D space. You can imagine the process of projecting 4D space onto a 2D screen like taking a 1D "line scan" of 3D space.
 
 ![demo](./demo.png)
 
