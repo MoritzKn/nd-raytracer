@@ -1,15 +1,11 @@
-# 2D Canvas
+# N-D Raytracing Web Frontend
 
-[View documentation for this example online][dox] or [View compiled example
-online][compiled]
+See: [nd-raytracing.netlify.app](https://nd-raytracing.netlify.app/)
 
-[compiled]: https://rustwasm.github.io/wasm-bindgen/exbuild/canvas/
-[dox]: https://rustwasm.github.io/docs/wasm-bindgen/examples/2d-canvas.html
+## Getting Started
 
-You can build the example locally with:
+Make sure you have [Rust installed](https://www.rust-lang.org/tools/install), then run:
 
+```sh
+npm run serve
 ```
-$ npm run serve
-```
-
-and then visiting http://localhost:8080 in a browser should run the example!
