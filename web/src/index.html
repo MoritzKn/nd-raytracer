@@ -6,19 +6,19 @@
 
     <meta
       name="description"
-      content="A software renderer for raytracing n-dimensional spheres using WebAssembly and Rust"
+      content="A raytracing rendering engine that supports hyper-spheres and higher-dimensional space; implemented using WebAssembly and Rust"
     />
 
     <style>
       * {
         box-sizing: border-box;
-        overflow: hidden;
       }
 
       body {
         margin: 0;
         font-family: monospace;
-        font-size: 15px;
+        font-size: 14px;
+        overflow: hidden;
       }
 
       #wrapper {
@@ -34,14 +34,19 @@
         position: absolute;
         top: 10px;
         left: 10px;
+        z-index: 2;
+      }
+
+      footer {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 2;
       }
     </style>
   </head>
 
   <body>
-    <div id="wrapper">
-      <canvas id="canvas"></canvas>
-    </div>
     <div class="controls">
       Dimensions:
       <input
@@ -53,5 +58,15 @@
         value="4"
       />
     </div>
+
+    <div id="wrapper">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <footer>
+      View source code on
+      <a href="https://github.com/MoritzKn/nd-raytracer">GitHub</a> and follow
+      me on <a href="https://twitter.com/moritz_kn">Twitter</a>
+    </footer>
   </body>
 </html>
