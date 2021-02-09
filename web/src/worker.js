@@ -276,17 +276,28 @@ function update({ data, camPos, start, end, width, height, dimension }) {
   );
 }
 
-async function start({ dimension }) {
+async function start({ dimension, scene }) {
   lib = await libPromise;
 
   world = new lib.World();
 
-  stackSpheres(world, dimension);
-  // colorCube(world, dimension);
-  // cube(world, dimension, [], dimension);
-  // packSpheres2(world);
-  // packSpheres3(world);
-  // packSpheres4(world);
+  switch (scene) {
+    case "spheres-on-cube":
+      stackSpheres(world, dimension);
+      break;
+    case "rgba":
+      colorCube(world, dimension);
+      break;
+    case "sphere-packing-2":
+      packSpheres2(world);
+      break;
+    case "sphere-packing-3":
+      packSpheres3(world);
+      break;
+    case "sphere-packing-4":
+      packSpheres4(world);
+      break;
+  }
 
   world.add_light(
     [-6.0, -6.0, 12.0, 6.0],

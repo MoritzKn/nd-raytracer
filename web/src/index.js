@@ -58,6 +58,7 @@ class RenderController {
 
     this.camPos = [8, 8, 6, 8, -3, -2, -1, 0, 1, 2, 3, 4];
     this.dimension = 4;
+    this.scene = "inital";
 
     // Scale the canvas to hit the frame rate (targetDt)
     this.scale = 1;
@@ -81,13 +82,19 @@ class RenderController {
     this.resize();
   }
 
-  async start(dimension) {
+  async start({ dimension, scene }) {
     this.paused = false;
     if (dimension) {
       this.dimension = dimension;
     }
+    if (scene) {
+      this.scene = scene;
+    }
 
-    await this.workerPool.broadcast("start", { dimension: this.dimension });
+    await this.workerPool.broadcast("start", {
+      dimension: this.dimension,
+      scene: this.scene
+    });
 
     this.dt.resetAvg();
 
@@ -204,12 +211,19 @@ class RenderController {
 }
 
 const render = new RenderController();
-render.start(4);
 
-document.getElementById("dimension").addEventListener("change", async event => {
-  const dimension = Math.max(Math.min(parseInt(event.target.value, 10), 9), 2);
-  document.getElementById("dimension").value = dimension;
+async function updateScene() {
+  const scene = sceneEl.value;
+  const dimension = Math.max(Math.min(parseInt(dimensionsEl.value, 10), 9), 2);
 
   await render.stop();
-  await render.start(dimension);
-});
+  await render.start({ dimension, scene });
+}
+
+const dimensionsEl = document.getElementById("dimension");
+const sceneEl = document.getElementById("scene");
+
+dimensionsEl.addEventListener("change", updateScene);
+sceneEl.addEventListener("change", updateScene);
+
+updateScene();
