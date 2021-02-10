@@ -81,8 +81,9 @@ class RenderController {
 
     setInterval(() => {
       statsEl.innerHTML = `
-      fps: ${this.dt.fps()}<br>
-      scale: ${this.scale.toFixed(2)}`;
+        scale: ${this.scale.toFixed(2)}<br>
+        fps: ${this.dt.fps}
+      `;
     }, 500);
 
     this.resize();
@@ -102,7 +103,7 @@ class RenderController {
       scene: this.scene
     });
 
-    this.dt.resetAvg();
+    this.dt.reset();
 
     this.currentFrame = this.draw();
   }
@@ -121,7 +122,11 @@ class RenderController {
     if (!this.dt.onTarget()) {
       // sqrt because update is O(scale^2)
       let diff = Math.sqrt(this.dt.differenceTarget());
-      const newScale = Math.min(Math.max(this.scale * diff, 0.1), 2);
+      const newScale = Math.min(
+        Math.max(this.scale * diff, 0.1),
+        2,
+        devicePixelRatio
+      );
       await this.resize(newScale);
     }
 
@@ -211,7 +216,7 @@ class RenderController {
     this.canvas.width = width;
     this.canvas.height = height;
 
-    this.dt.resetAvg();
+    this.dt.reset();
     this.imageData = [];
 
     console.log(
