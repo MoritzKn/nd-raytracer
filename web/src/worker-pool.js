@@ -3,20 +3,51 @@ export class WorkerPool {
     let count = 8;
 
     if (navigator.hardwareConcurrency) {
+      // Keep one core for the main thread
       count = navigator.hardwareConcurrency;
     }
 
+    const boundOnMessage = this.onMessage.bind(this);
     this.pool = [];
-    for (var i = 0; i < count; i++) {
-      const worker = new Worker(workerPath);
+    for (let i = 0; i < count; i++) {
+      const worker = new Worker(workerPath, { name: `pool[${i}]` });
       worker.jobs = 0;
       this.pool.push(worker);
+      worker.addEventListener("message", boundOnMessage);
     }
 
     this.msgId = 0;
     this.pending = [];
+    this.sent = [];
 
     console.log(`Created ${count} workers`);
+  }
+
+  onMessage(event) {
+    if (this.pending.length > 0) {
+      this.runPendingJobs();
+    }
+
+    const sentMessages = this.sent;
+    const sentMessagesCount = sentMessages.length;
+    const id = event.data.id;
+
+    // NOTE: Stupid for loop is significantly faster than array.find()
+    // and we do not want to waste time until scheduling new jobs
+    for (let i = 0; i < sentMessagesCount; i++) {
+      const msg = sentMessages[i];
+      if (msg.id === id) {
+        msg.worker.jobs -= 1;
+
+        if (event.data.error) {
+          msg.reject(event.data.error);
+        } else {
+          msg.resolve(event.data.data);
+        }
+
+        return;
+      }
+    }
   }
 
   size() {
@@ -28,43 +59,64 @@ export class WorkerPool {
   }
 
   send(worker, type, data) {
-    this.msgId += 1;
-    const messageId = this.msgId;
-    let transfer = [];
-    if (data && data.data && data.data.buffer) {
-      transfer.push(data.data.buffer);
-    }
-    worker.jobs += 1;
-    worker.postMessage({ type, data, id: messageId }, transfer);
-
     return new Promise((resolve, reject) => {
-      const onMessage = event => {
-        const { type, id, data, error } = event.data;
-
-        if (id === messageId) {
-          worker.removeEventListener("message", onMessage);
-          worker.jobs -= 1;
-          this.runPendingJobs();
-
-          if (error) {
-            reject(error);
-          } else {
-            resolve(data);
-          }
-        }
-      };
-
-      worker.addEventListener("message", onMessage);
+      this.sendInternal(worker, type, data, resolve, reject);
     });
   }
 
+  sendInternal(worker, type, data, resolve, reject) {
+    const id = this.msgId;
+    let transfer = undefined;
+    if (data && data.data && data.data.buffer) {
+      transfer = [data.data.buffer];
+    }
+    worker.postMessage({ type, data, id }, transfer);
+    this.sent.push({ worker, id, resolve, reject });
+    this.msgId += 1;
+    worker.jobs += 1;
+  }
+
   runPendingJobs() {
-    this.pool.forEach(worker => {
-      if (worker.jobs === 0 && this.pending.length > 0) {
-        const job = this.pending.pop();
-        this.send(worker, job.type, job.data).then(job.resolve, job.reject);
+    const workers = this.pool;
+    const workersCount = workers.length;
+    for (let i = 0; i < workersCount; i++) {
+      let worker = workers[i];
+      if (this.pending.length > 0) {
+        if (worker.jobs < 1) {
+          const job = this.pending.shift();
+          this.sendInternal(
+            worker,
+            job.type,
+            job.data,
+            job.resolve,
+            job.reject
+          );
+        }
+      } else {
+        return;
       }
-    });
+    }
+
+    if (this.pending.length > this.size()) {
+      // Double schedule some workers so that they can continue right away
+      for (let i = 0; i < workersCount; i++) {
+        let worker = workers[i];
+        if (this.pending.length > 0) {
+          if (worker.jobs < 2) {
+            const job = this.pending.shift();
+            this.sendInternal(
+              worker,
+              job.type,
+              job.data,
+              job.resolve,
+              job.reject
+            );
+          }
+        } else {
+          return;
+        }
+      }
+    }
   }
 
   schedule(type, data) {
