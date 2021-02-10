@@ -7,7 +7,7 @@ function hexColor(hex, alpha = 1) {
     parseInt(hex.substr(1, 2), 16) / 255,
     parseInt(hex.substr(3, 2), 16) / 255,
     parseInt(hex.substr(5, 2), 16) / 255,
-    1
+    alpha
   );
 }
 
@@ -132,9 +132,9 @@ function cube(world, dimension, pos, orgDimension = dimension) {
       new lib.Sphere(
         radius,
         lib.Color.rgba(
-          axies / (orgDimension - 2),
-          (orgDimension - axies) / (orgDimension - 1),
-          (orgDimension - axies) / (orgDimension - 1),
+          axies / Math.max(1, orgDimension - 2),
+          (orgDimension - axies) / Math.max(1, orgDimension - 1),
+          (orgDimension - axies) / Math.max(1, orgDimension - 1),
           1
         )
       )
@@ -287,6 +287,9 @@ async function start({ dimension, scene }) {
       break;
     case "rgba":
       colorCube(world, dimension);
+      break;
+    case "cube":
+      cube(world, dimension, [], dimension);
       break;
     case "sphere-packing-2":
       packSpheres2(world);
