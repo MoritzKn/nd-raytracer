@@ -1,6 +1,10 @@
 import { WorkerPool } from "./worker-pool";
 import { DeltaTime } from "./delta-time";
 
+const dimensionsEl = document.getElementById("dimension");
+const sceneEl = document.getElementById("scene");
+const statsEl = document.getElementById("stats");
+
 const TAU = Math.PI * 2;
 
 // Never devide the buffer in steps smaller than this...
@@ -75,6 +79,12 @@ class RenderController {
       }, 50);
     });
 
+    setInterval(() => {
+      statsEl.innerHTML = `
+      fps: ${this.dt.fps()}<br>
+      scale: ${this.scale.toFixed(2)}`;
+    }, 500);
+
     this.resize();
   }
 
@@ -135,7 +145,7 @@ class RenderController {
     let targetJobCount = this.workerPool.size() * 6;
     let chunkSize = Math.max(
       Math.ceil(this.canvas.height / targetJobCount / STEP) * STEP,
-      STEP * 4
+      STEP * 3 // we want to be able to do some adaptive rendering
     );
     let jobCount = Math.ceil(this.canvas.height / chunkSize);
     let jobs = [];
@@ -161,7 +171,6 @@ class RenderController {
     }
 
     const chunks = await Promise.all(jobs);
-    this.dt.end();
 
     await nextFrame();
 
@@ -173,7 +182,7 @@ class RenderController {
       this.imageData[i] = imageData;
     });
 
-    console.log(`update dt: ${this.dt}, scale: ${this.scale.toFixed(2)}`);
+    this.dt.end();
 
     if (!this.paused) {
       this.currentFrame = this.draw();
@@ -193,12 +202,12 @@ class RenderController {
     const width = Math.ceil((wrapper.clientWidth * this.scale) / STEP) * STEP;
     const height = Math.ceil((wrapper.clientHeight * this.scale) / STEP) * STEP;
 
-    let canvasScale = Math.max(
+    const canvasScale = Math.max(
       wrapper.clientWidth / width,
       wrapper.clientHeight / height
     );
-    this.canvas.style.transform = `scale(${Math.max(canvasScale + 0.01, 1)})`;
-    this.canvas.style.transformOrigin = `center`;
+    this.canvas.style.transform = `scale(${canvasScale})`;
+    this.canvas.style.transformOrigin = `top left`;
     this.canvas.width = width;
     this.canvas.height = height;
 
@@ -220,9 +229,6 @@ async function updateScene() {
   await render.stop();
   await render.start({ dimension, scene });
 }
-
-const dimensionsEl = document.getElementById("dimension");
-const sceneEl = document.getElementById("scene");
 
 dimensionsEl.addEventListener("change", updateScene);
 sceneEl.addEventListener("change", updateScene);

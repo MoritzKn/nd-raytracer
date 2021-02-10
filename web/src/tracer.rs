@@ -127,10 +127,10 @@ fn trace<V: Vector>(
 
     let mut color = BG_COLOR;
     for (index, hit) in all.iter().enumerate() {
-        if index != all.len() - 1 {
-            let next_alpha = all[index + 1].surface.color.alpha();
+        if let Some(next) = all.get(index + 1) {
+            let next_alpha = next.surface.color.alpha();
             if next_alpha == 1.0 {
-                // Not show anyways
+                // Hit is not shown anyways
                 continue;
             }
         }

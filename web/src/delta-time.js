@@ -1,4 +1,4 @@
-const TARGET_FPS = 24;
+const TARGET_FPS = 23;
 
 export class DeltaTime {
   constructor() {
@@ -58,5 +58,10 @@ export class DeltaTime {
   toString() {
     const avg = this.avgDt || this.dt;
     return `${this.dt.toFixed(2)}ms (avg: ${avg.toFixed(2)}ms)`;
+  }
+
+  fps() {
+    const avg = this.avgDt || this.dt;
+    return Math.round(1000 / avg);
   }
 }
