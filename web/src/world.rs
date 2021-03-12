@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::Float;
+use ndrt_lib::Float;
 
 use wasm_bindgen::prelude::*;
 

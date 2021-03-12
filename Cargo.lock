@@ -45,6 +45,7 @@ name = "ndrt-web"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "ndrt-lib",
  "wasm-bindgen",
  "web-sys",
 ]

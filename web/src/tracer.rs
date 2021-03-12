@@ -1,7 +1,6 @@
 use crate::color::Color;
-use crate::vector::Vector;
 use crate::world::{Light, Sphere, Surface, World};
-use crate::Float;
+use ndrt_lib::{Float, Vector};
 
 pub static BG_COLOR: Color = Color {
     array: [1.0, 1.0, 1.0, 1.0],

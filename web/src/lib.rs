@@ -1,17 +1,15 @@
+extern crate ndrt_lib;
 extern crate wasm_bindgen;
 
 mod color;
-mod fixedvector;
 mod tracer;
-mod vector;
 mod world;
 
 use wasm_bindgen::prelude::*;
 
 use color::{Color, ColorInt};
-use fixedvector::FixedVector;
+use ndrt_lib::{FixedVector, Float, Vector};
 use tracer::{sample, DimensionalWorld};
-use vector::Vector;
 use world::World;
 
 #[wasm_bindgen]
@@ -28,8 +26,6 @@ macro_rules! log {
     // `bare_bones`
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
-
-pub type Float = f32;
 
 fn set_px(
     data: &mut wasm_bindgen::Clamped<Vec<u8>>,

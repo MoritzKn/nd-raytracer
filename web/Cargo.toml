@@ -15,6 +15,8 @@ wasm-opt = false # does not work on my mac
 [dependencies]
 js-sys = "0.3.47"
 wasm-bindgen = "0.2.70"
+ndrt-lib = { path = "../ndrt-lib" }
+
 
 [dependencies.web-sys]
 version = "0.3.47"
