@@ -122,7 +122,7 @@ fn test_cube_intersection<V: Vector>(
     ray: &V,
     center: &V,
     cube: &Cube,
-) -> Option<Intersection<V>> {
+) -> (Option<Intersection<V>>, Option<Intersection<V>>) {
     let half_size = cube.size / 2.0;
     let bounds = center
         .components()
@@ -147,18 +147,36 @@ fn test_cube_intersection<V: Vector>(
         }
     }
 
-    if clamped_min < clamped_max && clamped_min > 0.0 {
-        let hit = origin.add(&ray.mul_scalar(clamped_min));
+    // cube is in line of the ray, no necessary in front through
+    let in_line = clamped_min < clamped_max;
 
+    let intersection_in = if in_line && clamped_min > 0.0 {
+        let hit_in = origin.add(&ray.mul_scalar(clamped_min));
         Some(Intersection {
-            position: hit,
-            normal: axis_normalize(&(hit - *center)),
-            distance: (hit - *origin).length(),
+            position: hit_in,
+            normal: axis_normalize(&(hit_in - *center)),
+            distance: (hit_in - *origin).length(),
             surface: cube.surface.clone(),
         })
     } else {
         None
-    }
+    };
+
+    let intersection_out = if in_line && clamped_max > 0.0 {
+        // let hit_out = origin.add(&ray.mul_scalar(clamped_max));
+        // Some(Intersection {
+        //     position: hit_out,
+        //     normal: axis_normalize(&(*center - hit_out)),
+        //     distance: (hit_out - *origin).length(),
+        //     surface: cube.surface.clone(),
+        // })
+
+        None
+    } else {
+        None
+    };
+
+    (intersection_in, intersection_out)
 }
 
 fn get_all_intersections<V: Vector>(
@@ -175,9 +193,15 @@ fn get_all_intersections<V: Vector>(
     }
 
     for (position, cube) in &world.cubes {
-        if let Some(intersection) = test_cube_intersection(origin, ray, &position, cube) {
-            all.push(intersection)
+        let (intersection_in, intersection_out) =
+            test_cube_intersection(origin, ray, &position, cube);
+
+        if let Some(intersection) = intersection_in {
+            all.push(intersection);
         }
+        // if let Some(intersection) = intersection_out {
+        //     all.push(intersection);
+        // }
     }
 
     all.sort_by(|a, b| b.distance.partial_cmp(&a.distance).unwrap());

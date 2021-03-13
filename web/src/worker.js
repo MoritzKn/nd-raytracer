@@ -154,22 +154,22 @@ function cube(world, dimension, pos, orgDimension = dimension) {
 function colorCube(world, dimension) {
   const count = 4;
   const scale = 2;
-  const radius = scale / (count - 1) / 2;
+  const size = scale / (count - 1);
   const tightPacking = false;
 
   for (var r = 0; r < (dimension >= 1 ? count : 1); r++) {
     for (var g = 0; g < (dimension >= 2 ? count : 1); g++) {
       for (var b = 0; b < (dimension >= 3 ? count : 1); b++) {
         for (var a = 0; a < (dimension >= 4 ? count : 1); a++) {
-          world.add_sphere(
+          world.add_cube(
             [
               (r / (count - 1) - 0.5) * scale,
               (g / (count - 1) - 0.5) * scale,
               (b / (count - 1) - 0.5) * scale,
               (a / (count - 1) - 0.5) * scale
             ],
-            new lib.Sphere(
-              radius,
+            new lib.Cube(
+              size,
               lib.Color.rgba(
                 1 - r / count,
                 1 - g / count,
@@ -186,15 +186,15 @@ function colorCube(world, dimension) {
             b < count - 1 &&
             a < count - 1
           ) {
-            world.add_sphere(
+            world.add_cube(
               [
                 ((r + 0.5) / (count - 1) - 0.5) * scale,
                 ((g + 0.5) / (count - 1) - 0.5) * scale,
                 ((b + 0.5) / (count - 1) - 0.5) * scale,
                 ((a + 0.5) / (count - 1) - 0.5) * scale
               ],
-              new lib.Sphere(
-                radius,
+              new lib.Cube(
+                size,
                 lib.Color.rgba(
                   1 - (r + 0.5) / count,
                   1 - (g + 0.5) / count,
@@ -262,6 +262,25 @@ function box(world, dimension, pos, orgDimension = dimension) {
   }
 }
 
+function ncubes(world, dimension) {
+  world.add_cube(
+    [-1.5, -1.5, -1.5, -1.5, -1.5, -1.5, -1.5, -1.5],
+    new lib.Cube(2, hexColor("#034df1", 0.6), 0.4)
+  );
+  world.add_cube(
+    [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5],
+    new lib.Cube(2, hexColor("#d53f47", 0.6), 0.4)
+  );
+  world.add_cube(
+    [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+    new lib.Cube(2, hexColor("#30e42d", 0.6), 0.4)
+  );
+  world.add_cube(
+    [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5],
+    new lib.Cube(2, hexColor("#d200f9", 0.6), 0.4)
+  );
+}
+
 function update({ data, camPos, start, end, width, height, dimension }) {
   return lib.update(
     data,
@@ -281,8 +300,6 @@ async function start({ dimension, scene }) {
 
   world = new lib.World();
 
-  world.add_cube([0], new lib.Cube(2, hexColor("#d53f47", 0.8), 0.2));
-
   switch (scene) {
     case "spheres-on-cube":
       stackSpheres(world, dimension);
@@ -292,6 +309,9 @@ async function start({ dimension, scene }) {
       break;
     case "cube":
       cube(world, dimension, [], dimension);
+      break;
+    case "n-cubes":
+      ncubes(world, dimension);
       break;
     case "sphere-packing-2":
       packSpheres2(world);
@@ -309,7 +329,7 @@ async function start({ dimension, scene }) {
     new lib.Light(lib.Color.rgba(1, 1, 1, 0.6))
   );
 
-  // NOTE: Multiple lgihts is heavyyy
+  // NOTE: Multiple lights is heavyyy
   // world.add_light(
   //   [-6.0, 6.0, 6.0, 4.0],
   //   new lib.Light(lib.Color.rgba(1, 1, 1, 0.2))
