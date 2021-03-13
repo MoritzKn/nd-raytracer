@@ -281,6 +281,8 @@ async function start({ dimension, scene }) {
 
   world = new lib.World();
 
+  world.add_cube([0], new lib.Cube(2, hexColor("#d53f47", 0.8), 0.2));
+
   switch (scene) {
     case "spheres-on-cube":
       stackSpheres(world, dimension);

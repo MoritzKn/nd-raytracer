@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::world::{Light, Sphere, Surface, World};
+use crate::world::{Cube, Light, Sphere, Surface, World};
 use ndrt_lib::{Float, Vector};
 
 pub static BG_COLOR: Color = Color {
@@ -12,6 +12,7 @@ pub struct DimensionalWorld<V: Vector> {
     cam_pos: V,
     lights: Vec<(V, Light)>,
     spheres: Vec<(V, Sphere)>,
+    cubes: Vec<(V, Cube)>,
 }
 
 impl<V: Vector> DimensionalWorld<V> {
@@ -29,6 +30,14 @@ impl<V: Vector> DimensionalWorld<V> {
                 .collect(),
             spheres: world
                 .spheres
+                .iter()
+                .map(|(position, s)| {
+                    let position = V::pad(&position, 0.0);
+                    (position, s.to_owned())
+                })
+                .collect(),
+            cubes: world
+                .cubes
                 .iter()
                 .map(|(position, s)| {
                     let position = V::pad(&position, 0.0);
@@ -87,14 +96,86 @@ fn test_sphere_intersection<V: Vector>(
     None
 }
 
+fn axis_normalize<V: Vector>(v: &V) -> V {
+    let mut most_dominat: Float = 0.0;
+
+    for comp in v.components() {
+        let comp = *comp;
+        if comp.abs() > most_dominat.abs() {
+            most_dominat = comp
+        }
+    }
+
+    let result = v.components().iter().cloned().map(|comp| {
+        if comp == most_dominat {
+            most_dominat.signum()
+        } else {
+            0.0
+        }
+    });
+
+    V::from_iter(result)
+}
+
+fn test_cube_intersection<V: Vector>(
+    origin: &V,
+    ray: &V,
+    center: &V,
+    cube: &Cube,
+) -> Option<Intersection<V>> {
+    let half_size = cube.size / 2.0;
+    let bounds = center
+        .components()
+        .iter()
+        .map(|c| (c + half_size, c - half_size));
+
+    let mut clamped_min = -Float::INFINITY;
+    let mut clamped_max = Float::INFINITY;
+
+    for ((origin_comp, ray_comp), (bounds_min, bounds_max)) in origin
+        .components()
+        .into_iter()
+        .zip(ray.components())
+        .zip(bounds)
+    {
+        if *ray_comp != 0.0 {
+            let tx1 = (bounds_min - origin_comp) / ray_comp;
+            let tx2 = (bounds_max - origin_comp) / ray_comp;
+
+            clamped_min = Float::max(clamped_min, Float::min(tx1, tx2));
+            clamped_max = Float::min(clamped_max, Float::max(tx1, tx2));
+        }
+    }
+
+    if clamped_min < clamped_max && clamped_min > 0.0 {
+        let hit = origin.add(&ray.mul_scalar(clamped_min));
+
+        Some(Intersection {
+            position: hit,
+            normal: axis_normalize(&(hit - *center)),
+            distance: (hit - *origin).length(),
+            surface: cube.surface.clone(),
+        })
+    } else {
+        None
+    }
+}
+
 fn get_all_intersections<V: Vector>(
     world: &DimensionalWorld<V>,
     origin: &V,
     ray: &V,
 ) -> Vec<Intersection<V>> {
-    let mut all = Vec::with_capacity(world.spheres.len());
+    let mut all = Vec::with_capacity(8);
+
     for (position, sphere) in &world.spheres {
         if let Some(intersection) = test_sphere_intersection(origin, ray, &position, sphere) {
+            all.push(intersection)
+        }
+    }
+
+    for (position, cube) in &world.cubes {
+        if let Some(intersection) = test_cube_intersection(origin, ray, &position, cube) {
             all.push(intersection)
         }
     }
@@ -136,14 +217,14 @@ fn trace<V: Vector>(
 
         let mut hit_color = hit.surface.color;
 
+        // Ambient light color
         let mut lights_color = Color::rgba(0.3, 0.3, 0.3, 1.0);
+
         for (light_pos, light) in &world.lights {
             let hit_to_light = (*light_pos - hit.position).normalize();
 
-            let mut color = get_light_color(
-                light.color,
-                get_all_intersections(world, &hit.position, &hit_to_light),
-            );
+            let shadow_casters = get_all_intersections(world, &hit.position, &hit_to_light);
+            let mut color = get_light_color(light.color, shadow_casters);
 
             let angle = hit.normal.dot(&hit_to_light);
             // The more the brightness of the light is influenced by the angle the softer curves will look

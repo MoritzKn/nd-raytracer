@@ -1,4 +1,5 @@
 use crate::Float;
+use std::fmt::Display;
 
 fn fast_inv_sqrt32(n: f32) -> f32 {
     // Magic number based on Chris Lomont work:
@@ -20,6 +21,7 @@ fn fast_inv_sqrt32(n: f32) -> f32 {
 pub trait Vector:
     Sized
     + Copy
+    + Display
     + std::ops::Mul<Output = Self>
     + std::ops::Add<Output = Self>
     + std::ops::Sub<Output = Self>

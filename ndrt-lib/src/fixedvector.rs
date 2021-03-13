@@ -1,5 +1,6 @@
 use crate::vector::Vector;
 use crate::Float;
+use std::fmt::Display;
 
 #[derive(Clone, Copy, Debug)]
 pub struct FixedVector<const L: usize> {
@@ -37,6 +38,20 @@ impl<const L: usize> Vector for FixedVector<L> {
     #[inline]
     fn components(&self) -> &[Float] {
         &self.components
+    }
+}
+
+impl<const L: usize> Display for FixedVector<L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "({})",
+            self.components()
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 
