@@ -1,10 +1,26 @@
 use crate::color::Color;
-use crate::world::{Cube, Light, Sphere, Surface, World};
+use crate::world::{Light, Sphere, Surface, World};
 use ndrt_lib::{Float, Vector};
 
 pub static BG_COLOR: Color = Color {
     array: [1.0, 1.0, 1.0, 1.0],
 };
+
+// Axis Aligned (Bounding) Box
+#[derive(Debug)]
+struct Aabb<V: Vector> {
+    min: V,
+    max: V,
+    center: V,
+    surface: Surface,
+}
+
+#[derive(Debug)]
+struct AabbRay<V: Vector> {
+    origin: V,
+    dir: V,
+    dir_inverse: V,
+}
 
 #[derive(Debug)]
 pub struct DimensionalWorld<V: Vector> {
@@ -12,7 +28,7 @@ pub struct DimensionalWorld<V: Vector> {
     cam_pos: V,
     lights: Vec<(V, Light)>,
     spheres: Vec<(V, Sphere)>,
-    cubes: Vec<(V, Cube)>,
+    aabbs: Vec<Aabb<V>>,
 }
 
 impl<V: Vector> DimensionalWorld<V> {
@@ -36,12 +52,19 @@ impl<V: Vector> DimensionalWorld<V> {
                     (position, s.to_owned())
                 })
                 .collect(),
-            cubes: world
+            aabbs: world
                 .cubes
                 .iter()
-                .map(|(position, s)| {
+                .map(|(position, cube)| {
                     let position = V::pad(&position, 0.0);
-                    (position, s.to_owned())
+                    let half_size = cube.size / 2.0;
+
+                    Aabb {
+                        min: V::from_iter(position.components().iter().map(|c| c - half_size)),
+                        max: V::from_iter(position.components().iter().map(|c| c + half_size)),
+                        center: position,
+                        surface: cube.surface.clone(),
+                    }
                 })
                 .collect(),
         }
@@ -117,53 +140,45 @@ fn axis_normalize<V: Vector>(v: &V) -> V {
     V::from_iter(result)
 }
 
-fn test_cube_intersection<V: Vector>(
-    origin: &V,
-    ray: &V,
-    center: &V,
-    cube: &Cube,
+fn test_aabb_intersection<V: Vector>(
+    ray: &AabbRay<V>,
+    aabb: &Aabb<V>,
 ) -> (Option<Intersection<V>>, Option<Intersection<V>>) {
-    let half_size = cube.size / 2.0;
-    let bounds = center
-        .components()
-        .iter()
-        .map(|c| (c + half_size, c - half_size));
-
     let mut clamped_min = -Float::INFINITY;
     let mut clamped_max = Float::INFINITY;
 
-    for ((origin_comp, ray_comp), (bounds_min, bounds_max)) in origin
+    for (((origin_comp, ray_inverse), bounds_min), bounds_max) in ray
+        .origin
         .components()
         .into_iter()
-        .zip(ray.components())
-        .zip(bounds)
+        .zip(ray.dir_inverse.components())
+        .zip(aabb.min.components())
+        .zip(aabb.max.components())
     {
-        if *ray_comp != 0.0 {
-            let tx1 = (bounds_min - origin_comp) / ray_comp;
-            let tx2 = (bounds_max - origin_comp) / ray_comp;
+        let tx1 = (bounds_min - origin_comp) * ray_inverse;
+        let tx2 = (bounds_max - origin_comp) * ray_inverse;
 
-            clamped_min = Float::max(clamped_min, Float::min(tx1, tx2));
-            clamped_max = Float::min(clamped_max, Float::max(tx1, tx2));
-        }
+        clamped_min = Float::max(clamped_min, Float::min(tx1, tx2));
+        clamped_max = Float::min(clamped_max, Float::max(tx1, tx2));
     }
 
-    // cube is in line of the ray, no necessary in front through
+    // cube is in line of the ray, not necessarily in front through
     let in_line = clamped_min < clamped_max;
 
     let intersection_in = if in_line && clamped_min > 0.0 {
-        let hit_in = origin.add(&ray.mul_scalar(clamped_min));
+        let hit_in = ray.origin + (ray.dir * clamped_min);
         Some(Intersection {
             position: hit_in,
-            normal: axis_normalize(&(hit_in - *center)),
-            distance: (hit_in - *origin).length(),
-            surface: cube.surface.clone(),
+            normal: axis_normalize(&(hit_in - aabb.center)),
+            distance: (hit_in - ray.origin).length(),
+            surface: aabb.surface.clone(),
         })
     } else {
         None
     };
 
     let intersection_out = if in_line && clamped_max > 0.0 {
-        // let hit_out = origin.add(&ray.mul_scalar(clamped_max));
+        // let hit_out = ray.origin + (ray.dir * clamped_max);
         // Some(Intersection {
         //     position: hit_out,
         //     normal: axis_normalize(&(*center - hit_out)),
@@ -192,9 +207,14 @@ fn get_all_intersections<V: Vector>(
         }
     }
 
-    for (position, cube) in &world.cubes {
-        let (intersection_in, intersection_out) =
-            test_cube_intersection(origin, ray, &position, cube);
+    let aabb_ray = AabbRay::<V> {
+        origin: origin.clone(),
+        dir: ray.clone(),
+        dir_inverse: V::pad(&[], 1.0) / *ray,
+    };
+
+    for aabb in &world.aabbs {
+        let (intersection_in, intersection_out) = test_aabb_intersection(&aabb_ray, &aabb);
 
         if let Some(intersection) = intersection_in {
             all.push(intersection);
