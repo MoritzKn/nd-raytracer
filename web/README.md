@@ -17,7 +17,7 @@ Ray tracing is something that can tremendously benefit from SIMD.
 you can try it out if you build with the following `RUSTFLAGS`:
 
 ```sh
-env RUSTFLAGS="-C target-feature=+simd128,+unimplemented-simd128" npm run serve
+env RUSTFLAGS="-C target-feature=+simd128" npm run serve
 ```
 
 This will turn on auto-vectorization in Rust and emit WASM with SIMD instructions. To try
