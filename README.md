@@ -17,3 +17,6 @@ The rendering engine is implemented in Rust using a generic vector type. This al
 The web frontend is simply using a WebAssembly build and a WebWorkers to spread the computation over the available cores.
 
 The canvas 2D API is used to put the pixels on the screen. The canvas is dynamically scaled to ensure a reasonable frame rate.
+
+This builds on my previous work: [N-Dimensional Raytracing
+ in JavaScript](https://github.com/MoritzKn/nd-raytracing-js)
