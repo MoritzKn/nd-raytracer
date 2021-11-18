@@ -1,14 +1,14 @@
 # N-Dimensional Raytracer
 
-A raytracing rendering engine that supports rendering hyper-spheres (and later other objects?) in higher dimensions. Currently available are the dimensions 2 to 9 but higher dimensions would be theoretically possible. It just gets very computationally expensive.
+A raytracing rendering engine that supports rendering hyper-spheres and hyper-cubes in higher dimensions. Currently available are the dimensions 2 to 9 but higher dimensions would be theoretically possible. It just gets very computationally expensive.
 
-All spheres are projects into the 2D plane that the camera screen is. So pretty much what we are used to from 3D space. You can imagine the process of projecting 4D space onto a 2D screen like taking a 1D "line scan" of 3D space.
+All objects are projected into the 2D plane that is the camera screen. So pretty much what we are used to from 3D space. You can imagine the process of projecting 4D space onto a 2D screen like taking a 1D "line scan" (think barcode scanner not laser pointer) of 3D space.
 
 ![demo](./demo.png)
 
 ## Getting Started
 
-There is a convenient web frontend that you can use at [nd-raytracing.netlify.app](https://nd-raytracing.netlify.app/)
+There is a convenient web frontend that you can visit at [nd-raytracing.netlify.app](https://nd-raytracing.netlify.app/)
 
 ## Implementation
 
